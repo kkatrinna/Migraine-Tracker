@@ -10,34 +10,50 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- Заголовок с навигацией -->
-        <LinearLayout
+        <!-- Навигация по месяцам -->
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:padding="16dp">
+            android:layout_margin="16dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="4dp">
 
-            <Button
-                android:id="@+id/button_previous_month"
-                style="@style/NavButton"
-                android:text="←" />
-
-            <TextView
-                android:id="@+id/text_month_title"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
+                android:orientation="horizontal"
                 android:gravity="center"
-                android:textSize="18sp"
-                android:textStyle="bold" />
+                android:padding="12dp">
 
-            <Button
-                android:id="@+id/button_next_month"
-                style="@style/NavButton"
-                android:text="→" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/button_previous_month"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="←"
+                    android:textSize="24sp" />
 
-        </LinearLayout>
+                <TextView
+                    android:id="@+id/text_month_title"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="?attr/colorPrimary" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/button_next_month"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="→"
+                    android:textSize="24sp" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
 
         <!-- Дни недели -->
         <LinearLayout
@@ -51,25 +67,73 @@
 
             <TextView
                 style="@style/CalendarWeekDay"
-                android:text="Пн" />
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="Пн"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+
             <TextView
                 style="@style/CalendarWeekDay"
-                android:text="Вт" />
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="Вт"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+
             <TextView
                 style="@style/CalendarWeekDay"
-                android:text="Ср" />
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="Ср"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+
             <TextView
                 style="@style/CalendarWeekDay"
-                android:text="Чт" />
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="Чт"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+
             <TextView
                 style="@style/CalendarWeekDay"
-                android:text="Пт" />
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="Пт"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+
             <TextView
                 style="@style/CalendarWeekDay"
-                android:text="Сб" />
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="Сб"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+
             <TextView
                 style="@style/CalendarWeekDay"
-                android:text="Вс" />
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="Вс"
+                android:textStyle="bold"
+                android:textSize="14sp" />
 
         </LinearLayout>
 
@@ -86,27 +150,28 @@
             android:layout_height="wrap_content"
             android:layout_margin="16dp"
             app:cardCornerRadius="16dp"
-            app:cardElevation="2dp">
+            app:cardElevation="4dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="20dp">
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="📊 Статистика месяца"
-                    android:textSize="18sp"
+                    android:text="Статистика месяца"
+                    android:textSize="20sp"
                     android:textStyle="bold"
+                    android:textColor="?attr/colorPrimary"
                     android:layout_marginBottom="16dp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:layout_marginBottom="12dp">
+                    android:layout_marginBottom="16dp">
 
                     <com.google.android.material.card.MaterialCardView
                         android:layout_width="0dp"
@@ -122,7 +187,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="vertical"
-                            android:padding="12dp"
+                            android:padding="16dp"
                             android:gravity="center">
 
                             <TextView
@@ -137,7 +202,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="0"
-                                android:textSize="28sp"
+                                android:textSize="32sp"
                                 android:textStyle="bold"
                                 android:textColor="?attr/colorPrimary" />
 
@@ -159,7 +224,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="vertical"
-                            android:padding="12dp"
+                            android:padding="16dp"
                             android:gravity="center">
 
                             <TextView
@@ -174,7 +239,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="0/10"
-                                android:textSize="28sp"
+                                android:textSize="32sp"
                                 android:textStyle="bold"
                                 android:textColor="?attr/colorPrimary" />
 
@@ -187,7 +252,8 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="16dp">
 
                     <com.google.android.material.card.MaterialCardView
                         android:layout_width="0dp"
@@ -203,7 +269,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="vertical"
-                            android:padding="12dp"
+                            android:padding="16dp"
                             android:gravity="center">
 
                             <TextView
@@ -218,7 +284,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="0/10"
-                                android:textSize="28sp"
+                                android:textSize="32sp"
                                 android:textStyle="bold"
                                 android:textColor="?attr/colorPrimary" />
 
@@ -226,15 +292,60 @@
 
                     </com.google.android.material.card.MaterialCardView>
 
-                    <Button
-                        android:id="@+id/btn_export"
+                    <!-- Кнопка экспорта -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/card_export"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginStart="8dp"
-                        android:text="📤 Экспорт" />
+                        app:cardCornerRadius="12dp"
+                        app:cardElevation="0dp"
+                        app:strokeWidth="1dp"
+                        app:strokeColor="?attr/colorPrimaryVariant"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackgroundBorderless">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="90dp"
+                            android:orientation="vertical"
+                            android:padding="16dp"
+                            android:gravity="center">
+
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Экспорт"
+                                android:textSize="20sp"
+                                android:textStyle="bold"
+                                android:textColor="?attr/colorPrimary"
+                                android:layout_marginTop="4dp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="CSV"
+                                android:textSize="10sp"
+                                android:textColor="?android:attr/textColorSecondary" />
+
+                        </LinearLayout>
+
+                    </com.google.android.material.card.MaterialCardView>
 
                 </LinearLayout>
+
+                <!-- Прогресс-бар -->
+                <com.google.android.material.progressindicator.LinearProgressIndicator
+                    android:id="@+id/progress_migraine_frequency"
+                    android:layout_width="match_parent"
+                    android:layout_height="4dp"
+                    android:layout_marginTop="8dp"
+                    app:trackCornerRadius="2dp"
+                    app:indicatorColor="?attr/colorPrimary"
+                    app:trackColor="@android:color/darker_gray" />
 
             </LinearLayout>
 
@@ -247,20 +358,21 @@
             android:layout_margin="16dp"
             android:layout_marginTop="0dp"
             app:cardCornerRadius="16dp"
-            app:cardElevation="2dp">
+            app:cardElevation="4dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="20dp">
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="⚡ Частые триггеры"
-                    android:textSize="18sp"
+                    android:text="Частые триггеры"
+                    android:textSize="20sp"
                     android:textStyle="bold"
+                    android:textColor="?attr/colorPrimary"
                     android:layout_marginBottom="16dp" />
 
                 <TextView
@@ -284,12 +396,15 @@
         </com.google.android.material.card.MaterialCardView>
 
         <!-- Кнопка напоминаний -->
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_reminders"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_margin="16dp"
-            android:text="🔔 Управление напоминаниями" />
+            android:text="Управление напоминаниями"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            app:icon="@android:drawable/ic_menu_edit"
+            app:iconGravity="textStart" />
 
     </LinearLayout>
 

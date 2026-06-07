@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.migrainetracker.R
 import com.example.migrainetracker.data.AppDatabase
 import com.example.migrainetracker.data.entity.MenstruationDay
+import com.google.android.material.card.MaterialCardView
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileWriter
@@ -32,7 +33,7 @@ class MenstruationCalendarFragment : Fragment() {
     private var menstruationDays = mutableMapOf<LocalDate, MenstruationDay>()
     private var predictedDays = mutableSetOf<LocalDate>()
     private var fertileWindowDays = mutableSetOf<LocalDate>()
-    private var ovulationDay = mutableSetOf<LocalDate>()
+    private var ovulationDays = mutableSetOf<LocalDate>()
 
     private lateinit var textMonthTitle: TextView
     private lateinit var recyclerCalendar: RecyclerView
@@ -41,12 +42,13 @@ class MenstruationCalendarFragment : Fragment() {
     private lateinit var textPeriodLength: TextView
     private lateinit var textNextPredicted: TextView
     private lateinit var textOvulationPredicted: TextView
-    private lateinit var btnExportCsv: Button
+    private lateinit var cardExport: MaterialCardView
 
     private var avgCycleLength = 28
+    private var minCycleLength = 28
+    private var maxCycleLength = 28
     private var avgPeriodLength = 5
     private var nextPeriods = mutableListOf<Pair<LocalDate, LocalDate>>()
-    private var nextOvulations = mutableListOf<LocalDate>()
     private var periodStartDates = mutableListOf<LocalDate>()
 
     override fun onCreateView(
@@ -69,7 +71,7 @@ class MenstruationCalendarFragment : Fragment() {
         textPeriodLength = view.findViewById(R.id.text_period_length)
         textNextPredicted = view.findViewById(R.id.text_next_predicted)
         textOvulationPredicted = view.findViewById(R.id.text_ovulation_predicted)
-        btnExportCsv = view.findViewById(R.id.btn_export_csv)
+        cardExport = view.findViewById(R.id.card_export)
 
         setupCalendar()
         setupButtons()
@@ -88,7 +90,7 @@ class MenstruationCalendarFragment : Fragment() {
             }
         }
 
-        btnExportCsv.setOnClickListener {
+        cardExport.setOnClickListener {
             exportToCSV()
         }
     }
@@ -144,7 +146,7 @@ class MenstruationCalendarFragment : Fragment() {
             }
 
             calculateCycleStatistics()
-            calculateFertileWindowForAllPeriods()
+            calculateFertileWindowAndOvulation()
             calculatePredictedDays()
             updateCalendar()
         }
@@ -163,91 +165,128 @@ class MenstruationCalendarFragment : Fragment() {
                 textNextPredicted.text = "—"
                 textOvulationPredicted.text = "—"
                 avgCycleLength = 28
+                minCycleLength = 28
+                maxCycleLength = 28
                 avgPeriodLength = 5
+                // Очищаем прогнозы
+                nextPeriods.clear()
+                predictedDays.clear()
+                fertileWindowDays.clear()
+                ovulationDays.clear()
+                updateCalendar()
                 return@launch
             }
 
             val periods = findPeriods(allMenstruationDays)
             periodStartDates = periods.map { it.first() }.toMutableList()
 
-            val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+            val dateFormatter = DateTimeFormatter.ofPattern("dd.MM")
             val lastPeriod = periods.lastOrNull()
 
             if (lastPeriod != null && lastPeriod.isNotEmpty()) {
-                textLastMenstruation.text = "${lastPeriod.first().format(dateFormatter)} - ${lastPeriod.last().format(dateFormatter)}"
+                val startStr = lastPeriod.first().format(dateFormatter)
+                val endStr = lastPeriod.last().format(dateFormatter)
+                textLastMenstruation.text = "$startStr - $endStr"
+
                 val periodLengths = periods.map { it.size }
                 avgPeriodLength = if (periodLengths.isNotEmpty()) periodLengths.average().toInt() else 5
-                textPeriodLength.text = "$avgPeriodLength дней"
+                textPeriodLength.text = "$avgPeriodLength дн"
             } else {
-                textLastMenstruation.text = allMenstruationDays.last().date.format(dateFormatter)
                 textPeriodLength.text = "—"
             }
 
+            // Расчет длины цикла за последние 6 месяцев
             val cycles = mutableListOf<Long>()
             for (i in 1 until periodStartDates.size) {
                 val prevStart = periodStartDates[i - 1]
                 val currentStart = periodStartDates[i]
-                cycles.add(ChronoUnit.DAYS.between(prevStart, currentStart))
+                val cycleLength = ChronoUnit.DAYS.between(prevStart, currentStart)
+                cycles.add(cycleLength)
             }
 
-            avgCycleLength = if (cycles.isNotEmpty()) cycles.average().toLong().toInt() else 28
-            textCycleLength.text = "$avgCycleLength дней"
-
-            nextPeriods.clear()
-            nextOvulations.clear()
-
-            val lastStart = periodStartDates.lastOrNull() ?: LocalDate.now().minusDays(28)
-            var nextStart = lastStart.plusDays(avgCycleLength.toLong())
-
-            for (i in 1..6) {
-                val nextEnd = nextStart.plusDays((avgPeriodLength - 1).toLong())
-                nextPeriods.add(Pair(nextStart, nextEnd))
-                nextOvulations.add(nextStart.minusDays(14))
-                nextStart = nextStart.plusDays(avgCycleLength.toLong())
+            if (cycles.isNotEmpty()) {
+                avgCycleLength = cycles.average().toLong().toInt()
+                minCycleLength = cycles.minOrNull()?.toInt() ?: avgCycleLength
+                maxCycleLength = cycles.maxOrNull()?.toInt() ?: avgCycleLength
+                textCycleLength.text = "$avgCycleLength дн"
+            } else {
+                // Если только один период, нет данных о длине цикла
+                textCycleLength.text = "—"
+                avgCycleLength = 28
+                minCycleLength = 28
+                maxCycleLength = 28
             }
 
-            val firstNext = nextPeriods.first()
-            textNextPredicted.text = "${firstNext.first.format(dateFormatter)} - ${firstNext.second.format(dateFormatter)}"
-            textOvulationPredicted.text = nextOvulations.first().format(dateFormatter)
+            // Рассчитываем следующие периоды ТОЛЬКО если есть данные о циклах
+            if (cycles.isNotEmpty()) {
+                nextPeriods.clear()
+                val lastStart = periodStartDates.lastOrNull() ?: return@launch
+                var nextStart = lastStart.plusDays(avgCycleLength.toLong())
+
+                for (i in 1..6) {
+                    val nextEnd = nextStart.plusDays((avgPeriodLength - 1).toLong())
+                    nextPeriods.add(Pair(nextStart, nextEnd))
+                    nextStart = nextStart.plusDays(avgCycleLength.toLong())
+                }
+
+                val firstNext = nextPeriods.first()
+                val nextStartStr = firstNext.first.format(dateFormatter)
+                val nextEndStr = firstNext.second.format(dateFormatter)
+                textNextPredicted.text = "$nextStartStr - $nextEndStr"
+            } else {
+                nextPeriods.clear()
+                textNextPredicted.text = "—"
+                textOvulationPredicted.text = "—"
+            }
         }
     }
 
-    private fun calculateFertileWindowForAllPeriods() {
+    private fun calculateFertileWindowAndOvulation() {
         fertileWindowDays.clear()
-        ovulationDay.clear()
+        ovulationDays.clear()
 
-        if (periodStartDates.isEmpty()) return
+        // Если нет данных о циклах, не рассчитываем
+        if (periodStartDates.size < 2) {
+            textOvulationPredicted.text = "—"
+            return
+        }
 
-        for (i in 0 until periodStartDates.size) {
-            val currentPeriodStart = periodStartDates[i]
+        // Используем min и max цикл для расчета фертильного окна
+        val fertileStart = minCycleLength - 18
+        val fertileEnd = maxCycleLength - 11
 
-            val nextPeriodStart = if (i + 1 < periodStartDates.size) {
-                periodStartDates[i + 1]
-            } else {
-                currentPeriodStart.plusDays(avgCycleLength.toLong())
-            }
+        for (periodStart in periodStartDates) {
+            // Расчет дня овуляции по формуле: Длина цикла - 14
+            val ovulationDayNumber = avgCycleLength - 14
+            val ovulationDate = periodStart.plusDays(ovulationDayNumber.toLong())
+            ovulationDays.add(ovulationDate)
 
-            val ovulationDate = nextPeriodStart.minusDays(14)
-
-            if (ovulationDate.isAfter(currentPeriodStart)) {
-                ovulationDay.add(ovulationDate)
-
-                for (dayOffset in -5..1) {
-                    val fertileDate = ovulationDate.plusDays(dayOffset.toLong())
-                    if (!fertileDate.isBefore(currentPeriodStart)) {
-                        fertileWindowDays.add(fertileDate)
-                    }
+            // Фертильное окно: от (ovulationDayNumber - 5) до (ovulationDayNumber + 1)
+            for (dayOffset in -5..1) {
+                val fertileDate = periodStart.plusDays(ovulationDayNumber.toLong() + dayOffset)
+                if (fertileDate.isAfter(periodStart.minusDays(1))) {
+                    fertileWindowDays.add(fertileDate)
                 }
             }
         }
 
-        for (period in nextPeriods) {
-            val ovulationDate = period.first.minusDays(14)
-            ovulationDay.add(ovulationDate)
+        // Рассчитываем для будущих периодов только если они есть
+        if (nextPeriods.isNotEmpty()) {
+            for (period in nextPeriods) {
+                val ovulationDayNumber = avgCycleLength - 14
+                val ovulationDate = period.first.plusDays(ovulationDayNumber.toLong())
+                ovulationDays.add(ovulationDate)
 
-            for (dayOffset in -5..1) {
-                fertileWindowDays.add(ovulationDate.plusDays(dayOffset.toLong()))
+                for (dayOffset in -5..1) {
+                    val fertileDate = period.first.plusDays(ovulationDayNumber.toLong() + dayOffset)
+                    fertileWindowDays.add(fertileDate)
+                }
             }
+
+            val nextOvulationDate = nextPeriods.first().first.plusDays((avgCycleLength - 14).toLong())
+            textOvulationPredicted.text = nextOvulationDate.format(DateTimeFormatter.ofPattern("dd.MM"))
+        } else {
+            textOvulationPredicted.text = "—"
         }
     }
 
@@ -305,7 +344,7 @@ class MenstruationCalendarFragment : Fragment() {
             val menstruation = menstruationDays[date]
             val isMenstruating = menstruation?.isMenstruating ?: false
             val isPredicted = predictedDays.contains(date) && !isMenstruating
-            val isOvulation = ovulationDay.contains(date) && !isMenstruating && !isPredicted
+            val isOvulation = ovulationDays.contains(date) && !isMenstruating && !isPredicted
             val isFertile = fertileWindowDays.contains(date) && !isMenstruating && !isPredicted && !isOvulation
             days.add(CalendarDay(date, isMenstruating, isPredicted, isOvulation, isFertile))
         }
@@ -348,7 +387,6 @@ class MenstruationCalendarFragment : Fragment() {
 
             try {
                 val fileName = "menstruation_data_${LocalDate.now()}.csv"
-                var savedFile: File? = null
 
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                     val resolver = requireContext().contentResolver
@@ -363,19 +401,6 @@ class MenstruationCalendarFragment : Fragment() {
                         resolver.openOutputStream(it)?.use { outputStream ->
                             outputStream.write(sb.toString().toByteArray())
                         }
-
-                        // Получаем файл по URI для уведомления
-                        val cursor = resolver.query(uri, null, null, null, null)
-                        cursor?.use {
-                            if (it.moveToFirst()) {
-                                val dataColumn = it.getColumnIndex(android.provider.MediaStore.MediaColumns.DATA)
-                                if (dataColumn >= 0) {
-                                    val filePath = it.getString(dataColumn)
-                                    savedFile = File(filePath)
-                                }
-                            }
-                        }
-
                         showDownloadNotification(fileName, uri)
                     } ?: run {
                         Toast.makeText(requireContext(), "Ошибка сохранения файла", Toast.LENGTH_LONG).show()
@@ -388,8 +413,6 @@ class MenstruationCalendarFragment : Fragment() {
                     FileWriter(file).use { writer ->
                         writer.write(sb.toString())
                     }
-                    savedFile = file
-
                     val uri = androidx.core.content.FileProvider.getUriForFile(
                         requireContext(),
                         "${requireContext().packageName}.fileprovider",
@@ -419,7 +442,6 @@ class MenstruationCalendarFragment : Fragment() {
             notificationManager.createNotificationChannel(channel)
         }
 
-        // Создаем Intent для открытия файла
         val openIntent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(fileUri, "text/csv")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -449,7 +471,6 @@ class MenstruationCalendarFragment : Fragment() {
         notificationManager.notify((System.currentTimeMillis() % 10000).toInt(), notification)
     }
 
-
     inner class CalendarAdapter(
         private val onDayClick: (LocalDate) -> Unit
     ) : RecyclerView.Adapter<CalendarAdapter.DayViewHolder>() {
@@ -475,47 +496,43 @@ class MenstruationCalendarFragment : Fragment() {
 
         inner class DayViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
             private val textDay: TextView = itemView.findViewById(R.id.text_day)
-            private val cardDay: androidx.cardview.widget.CardView = itemView.findViewById(R.id.card_day)
+            private val cardDay: MaterialCardView = itemView.findViewById(R.id.card_day)
 
             fun bind(day: CalendarDay) {
                 if (day.date != null) {
                     textDay.text = day.date.dayOfMonth.toString()
-                    textDay.isEnabled = true
 
                     val isNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
                     val isFutureDate = day.date.isAfter(LocalDate.now())
 
                     if (isFutureDate) {
                         if (day.isPredicted) {
-                            cardDay.setCardBackgroundColor(Color.parseColor("#FFCDD2"))
-                            textDay.setTextColor(Color.parseColor("#C62828"))
-                            cardDay.alpha = 0.8f
+                            cardDay.setCardBackgroundColor(Color.parseColor("#F8BBD9"))
+                            textDay.setTextColor(Color.parseColor("#AD1457"))
                         } else if (day.isFertile) {
                             cardDay.setCardBackgroundColor(Color.parseColor("#C8E6C9"))
                             textDay.setTextColor(Color.parseColor("#2E7D32"))
-                            cardDay.alpha = 0.8f
                         } else if (day.isOvulation) {
                             cardDay.setCardBackgroundColor(Color.parseColor("#B3E5FC"))
                             textDay.setTextColor(Color.parseColor("#0277BD"))
-                            cardDay.alpha = 0.8f
                         } else {
                             if (isNightMode) {
                                 cardDay.setCardBackgroundColor(Color.parseColor("#333333"))
                                 textDay.setTextColor(Color.parseColor("#666666"))
                             } else {
                                 cardDay.setCardBackgroundColor(Color.parseColor("#EEEEEE"))
-                                textDay.setTextColor(Color.parseColor("#CCCCCC"))
+                                textDay.setTextColor(Color.parseColor("#999999"))
                             }
-                            cardDay.alpha = 0.5f
                         }
                         cardDay.cardElevation = 0f
-                        itemView.isClickable = false
-                        itemView.isEnabled = false
+                        cardDay.alpha = 0.7f
+                        cardDay.isClickable = false
                         return
                     }
 
                     cardDay.alpha = 1f
-                    cardDay.cardElevation = 1f
+                    cardDay.cardElevation = 2f
+                    cardDay.isClickable = true
 
                     when {
                         day.isMenstruating -> {
@@ -540,15 +557,12 @@ class MenstruationCalendarFragment : Fragment() {
                         }
                     }
 
-                    itemView.isClickable = true
-                    itemView.isEnabled = true
-                    itemView.setOnClickListener { onDayClick(day.date) }
+                    cardDay.setOnClickListener { onDayClick(day.date) }
                 } else {
                     textDay.text = ""
-                    textDay.isEnabled = false
                     cardDay.setCardBackgroundColor(Color.TRANSPARENT)
-                    cardDay.alpha = 1f
-                    itemView.setOnClickListener(null)
+                    cardDay.isClickable = false
+                    cardDay.setOnClickListener(null)
                 }
             }
         }

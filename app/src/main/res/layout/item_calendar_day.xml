@@ -1,41 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="2dp">
+    android:orientation="vertical"
+    android:padding="4dp"
+    android:gravity="center">
 
-    <RelativeLayout
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:gravity="center">
+    <TextView
+        android:id="@+id/text_day"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:gravity="center"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:background="@drawable/circle_background" />
 
-        <TextView
-            android:id="@+id/text_day"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:gravity="center"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="?android:attr/textColorPrimary"
-            android:background="@drawable/bg_calendar_day" />
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="4dp">
 
         <ImageView
             android:id="@+id/image_pain"
             android:layout_width="20dp"
             android:layout_height="20dp"
-            android:layout_alignParentTop="true"
-            android:layout_alignParentEnd="true"
-            android:visibility="gone" />
+            android:visibility="gone"
+            android:contentDescription="Боль" />
 
         <ImageView
             android:id="@+id/image_menstruation"
-            android:layout_width="14dp"
-            android:layout_height="14dp"
-            android:layout_alignParentBottom="true"
-            android:layout_alignParentStart="true"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginStart="4dp"
+            android:visibility="gone"
             android:src="@drawable/ic_menstruation"
-            android:visibility="gone" />
+            android:contentDescription="Менструация" />
 
-    </RelativeLayout>
+    </LinearLayout>
 
-</FrameLayout>
+</LinearLayout>

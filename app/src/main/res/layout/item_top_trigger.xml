@@ -4,18 +4,16 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:padding="8dp"
+    android:padding="12dp"
     android:gravity="center_vertical">
 
-    <TextView
-        android:id="@+id/text_number"
-        android:layout_width="32dp"
-        android:layout_height="wrap_content"
-        android:text="1"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:textColor="?attr/colorPrimary"
-        android:gravity="center" />
+    <!-- Иконка триггера (без круга) -->
+    <ImageView
+        android:id="@+id/image_trigger_icon"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:src="@drawable/ic_trigger_default"
+        android:contentDescription="Иконка триггера" />
 
     <LinearLayout
         android:layout_width="0dp"
@@ -28,7 +26,6 @@
             android:id="@+id/text_trigger_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Стресс"
             android:textSize="14sp"
             android:textStyle="bold"
             android:textColor="?android:attr/textColorPrimary" />
@@ -40,8 +37,7 @@
             android:layout_height="6dp"
             android:layout_marginTop="4dp"
             android:progressTint="?attr/colorPrimary"
-            android:progressBackgroundTint="#E0E0E0"
-            android:max="100" />
+            android:progressBackgroundTint="@android:color/darker_gray" />
 
     </LinearLayout>
 
@@ -49,7 +45,6 @@
         android:id="@+id/text_trigger_count"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="5 раз"
         android:textSize="12sp"
         android:textColor="?android:attr/textColorSecondary"
         android:layout_marginStart="8dp" />

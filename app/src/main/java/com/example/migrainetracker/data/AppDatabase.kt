@@ -10,9 +10,6 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.migrainetracker.data.dao.*
 import com.example.migrainetracker.data.entity.*
 import com.example.migrainetracker.utils.DateConverters
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 @Database(
     entities = [
@@ -24,7 +21,7 @@ import kotlinx.coroutines.launch
         MigraineRecordTrigger::class,
         MedicineReminder::class
     ],
-    version = 6,
+    version = 12,  // Увеличиваем версию
     exportSchema = false
 )
 @TypeConverters(DateConverters::class)
@@ -41,41 +38,6 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        private val MIGRATION_5_6 = object : Migration(5, 6) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                try {
-                    database.execSQL("ALTER TABLE migraine_records ADD COLUMN endTime TEXT")
-                } catch (e: Exception) {
-                }
-                try {
-                    database.execSQL("ALTER TABLE migraine_records ADD COLUMN nausea INTEGER NOT NULL DEFAULT 0")
-                } catch (e: Exception) {
-                }
-                try {
-                    database.execSQL("ALTER TABLE migraine_records ADD COLUMN photophobia INTEGER NOT NULL DEFAULT 0")
-                } catch (e: Exception) {
-                }
-                try {
-                    database.execSQL("ALTER TABLE migraine_records ADD COLUMN aura INTEGER NOT NULL DEFAULT 0")
-                } catch (e: Exception) {
-                }
-                try {
-                    database.execSQL("ALTER TABLE migraine_records ADD COLUMN notes TEXT")
-                } catch (e: Exception) {
-                }
-
-                database.execSQL("""
-                    CREATE TABLE IF NOT EXISTS medicine_reminders (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                        medicineName TEXT NOT NULL,
-                        reminderTime TEXT NOT NULL,
-                        isEnabled INTEGER NOT NULL DEFAULT 1,
-                        repeatInterval INTEGER NOT NULL DEFAULT 0
-                    )
-                """)
-            }
-        }
-
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -83,36 +45,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "migraine_tracker_db"
                 )
-                    .addMigrations(MIGRATION_5_6)
-                    .fallbackToDestructiveMigration()
-                    .addCallback(DatabaseCallback())
+                    .fallbackToDestructiveMigration()  // Это удалит старую БД и создаст новую
                     .build()
                 INSTANCE = instance
                 instance
-            }
-        }
-
-        private class DatabaseCallback : RoomDatabase.Callback() {
-            override fun onCreate(db: SupportSQLiteDatabase) {
-                super.onCreate(db)
-                INSTANCE?.let { database ->
-                    CoroutineScope(Dispatchers.IO).launch {
-                        populateTriggers(database.triggerDao())
-                    }
-                }
-            }
-        }
-
-        private suspend fun populateTriggers(triggerDao: TriggerDao) {
-            val existingTriggers = triggerDao.getAllTriggers()
-            if (existingTriggers.isEmpty()) {
-                val presetTriggers = listOf(
-                    "Стресс", "Недосып", "Яркий свет", "Громкий звук",
-                    "Погода", "Голод", "Кофеин", "Алкоголь", "Гормоны", "Другое"
-                )
-                for (triggerName in presetTriggers) {
-                    triggerDao.insertTrigger(Trigger(name = triggerName))
-                }
             }
         }
     }

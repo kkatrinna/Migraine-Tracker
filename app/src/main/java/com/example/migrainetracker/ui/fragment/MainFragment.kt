@@ -1,21 +1,31 @@
 package com.example.migrainetracker.ui.fragment
 
+import android.Manifest
 import android.app.AlarmManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.ProgressDialog
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.MediaStore
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.core.graphics.ColorUtils
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -33,13 +43,19 @@ import com.example.migrainetracker.ui.adapters.RemindersAdapter
 import com.example.migrainetracker.ui.adapters.TriggerCheckboxAdapter
 import com.example.migrainetracker.utils.ReminderReceiver
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.io.File
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
+import java.util.*
 
 class MainFragment : Fragment() {
 
@@ -58,16 +74,12 @@ class MainFragment : Fragment() {
     private lateinit var textMaxIntensity: TextView
     private lateinit var textTopTriggers: TextView
     private lateinit var layoutTopTriggers: LinearLayout
-
+    private lateinit var cardExport: com.google.android.material.card.MaterialCardView
     private lateinit var remindersAdapter: RemindersAdapter
     private lateinit var recyclerReminders: RecyclerView
     private lateinit var textEmptyReminders: TextView
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         return inflater.inflate(R.layout.fragment_main_calendar, container, false)
     }
 
@@ -84,15 +96,17 @@ class MainFragment : Fragment() {
         textMaxIntensity = view.findViewById(R.id.text_max_intensity)
         textTopTriggers = view.findViewById(R.id.text_top_triggers)
         layoutTopTriggers = view.findViewById(R.id.layout_top_triggers)
+        cardExport = view.findViewById(R.id.card_export)
 
         setupCalendar()
         setupButtons(view)
         applyThemeColors()
+        createNotificationChannels()
 
-        view.findViewById<Button>(R.id.btn_reminders)?.setOnClickListener {
-            showRemindersDialog()
-        }
+        cardExport.setOnClickListener { showExportDialog() }
+        view.findViewById<Button>(R.id.btn_reminders)?.setOnClickListener { showRemindersDialog() }
 
+        checkNotificationPermission()
         requestExactAlarmPermission()
 
         lifecycleScope.launch {
@@ -108,6 +122,28 @@ class MainFragment : Fragment() {
         loadData()
     }
 
+    private fun createNotificationChannels() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val notificationManager = requireContext().getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+            val exportChannel = NotificationChannel("download_channel", "Экспорт данных", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Уведомления о завершении экспорта данных"
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 500, 200, 500)
+                setSound(null, null)
+            }
+
+            val reminderChannel = NotificationChannel("reminder_channel", "Напоминания о лекарствах", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Уведомления о времени приема лекарств"
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 1000, 500, 1000)
+            }
+
+            notificationManager.createNotificationChannel(exportChannel)
+            notificationManager.createNotificationChannel(reminderChannel)
+        }
+    }
+
     private fun requestExactAlarmPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager = requireContext().getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -116,7 +152,7 @@ class MainFragment : Fragment() {
                     .setTitle("Разрешение на будильники")
                     .setMessage("Для точных напоминаний о приёме лекарств необходимо разрешить планирование будильников.")
                     .setPositiveButton("Перейти в настройки") { _, _ ->
-                        startActivity(Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM))
+                        startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM))
                     }
                     .setNegativeButton("Напомнить позже", null)
                     .show()
@@ -131,43 +167,30 @@ class MainFragment : Fragment() {
             return
         }
 
-        val presetTriggers = listOf(
-            "Стресс", "Недосып", "Яркий свет", "Громкий звук",
-            "Погода", "Голод", "Кофеин", "Алкоголь", "Гормоны", "Другое"
-        )
+        val presetTriggers = listOf("Стресс", "Недосып", "Яркий свет", "Громкий звук", "Погода", "Голод", "Кофеин", "Алкоголь", "Гормоны", "Другое")
         for (name in presetTriggers) {
             db.triggerDao().insertTrigger(Trigger(name = name))
         }
-
         allTriggers = db.triggerDao().getAllTriggers()
     }
 
     private fun applyThemeColors() {
         val isNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-        val backgroundColor = if (isNightMode) {
-            ContextCompat.getColor(requireContext(), android.R.color.black)
-        } else {
-            ContextCompat.getColor(requireContext(), android.R.color.white)
-        }
-        view?.setBackgroundColor(backgroundColor)
-        textMonthTitle.setTextColor(if (isNightMode) Color.WHITE else Color.BLACK)
-        if (::calendarAdapter.isInitialized) {
-            calendarAdapter.notifyDataSetChanged()
-        }
+        view?.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.background_main))
+        textMonthTitle.setTextColor(ContextCompat.getColor(requireContext(), if (isNightMode) R.color.white else R.color.black))
+        if (::calendarAdapter.isInitialized) calendarAdapter.notifyDataSetChanged()
     }
 
     private suspend fun loadTriggers() {
-        allTriggers = db.triggerDao().getAllTriggers()
+        db.triggerDao().deleteDuplicateTriggers()
+        allTriggers = db.triggerDao().getAllTriggersDistinct()
 
         if (allTriggers.isEmpty()) {
-            val presetTriggers = listOf(
-                "Стресс", "Недосып", "Яркий свет", "Громкий звук",
-                "Погода", "Голод", "Кофеин", "Алкоголь", "Гормоны", "Другое"
-            )
+            val presetTriggers = listOf("Стресс", "Недосып", "Яркий свет", "Громкий звук", "Погода", "Голод", "Кофеин", "Алкоголь", "Гормоны", "Другое")
             for (name in presetTriggers) {
                 db.triggerDao().insertTrigger(Trigger(name = name))
             }
-            allTriggers = db.triggerDao().getAllTriggers()
+            allTriggers = db.triggerDao().getAllTriggersDistinct()
         }
     }
 
@@ -186,19 +209,17 @@ class MainFragment : Fragment() {
         lifecycleScope.launch {
             try {
                 val topTriggers = db.triggerDao().getUsedTopTriggers()
-                if (::textTopTriggers.isInitialized) {
-                    updateTopTriggersUI(topTriggers)
-                }
+                if (::textTopTriggers.isInitialized) updateTopTriggersUI(topTriggers)
             } catch (e: Exception) {
-                if (::textTopTriggers.isInitialized) {
-                    textTopTriggers.text = "Ошибка загрузки"
-                }
+                if (::textTopTriggers.isInitialized) textTopTriggers.text = "Ошибка загрузки"
             }
         }
     }
 
     private fun updateTopTriggersUI(topTriggers: List<com.example.migrainetracker.data.entity.TopTrigger>) {
-        if (topTriggers.isEmpty()) {
+        val top3Triggers = topTriggers.take(3)
+
+        if (top3Triggers.isEmpty()) {
             textTopTriggers.text = "Нет отмеченных триггеров"
             textTopTriggers.visibility = View.VISIBLE
             layoutTopTriggers.visibility = View.GONE
@@ -209,23 +230,35 @@ class MainFragment : Fragment() {
         layoutTopTriggers.visibility = View.VISIBLE
         layoutTopTriggers.removeAllViews()
 
-        for ((index, trigger) in topTriggers.withIndex()) {
+        for (trigger in top3Triggers) {
             val triggerView = layoutInflater.inflate(R.layout.item_top_trigger, layoutTopTriggers, false)
-
-            val textNumber = triggerView.findViewById<TextView>(R.id.text_number)
+            val imageTriggerIcon = triggerView.findViewById<ImageView>(R.id.image_trigger_icon)
             val textTriggerName = triggerView.findViewById<TextView>(R.id.text_trigger_name)
             val textTriggerCount = triggerView.findViewById<TextView>(R.id.text_trigger_count)
             val progressBar = triggerView.findViewById<ProgressBar>(R.id.progress_bar_trigger)
 
-            textNumber.text = "${index + 1}"
             textTriggerName.text = trigger.name
             textTriggerCount.text = "${trigger.count} ${getCountWord(trigger.count)}"
+            imageTriggerIcon.setImageResource(getTriggerIcon(trigger.name))
 
-            val maxCount = topTriggers.firstOrNull()?.count ?: 1
-            val progress = (trigger.count.toFloat() / maxCount * 100).toInt()
-            progressBar.progress = progress
-
+            val maxCount = top3Triggers.first().count
+            progressBar.progress = (trigger.count.toFloat() / maxCount * 100).toInt()
             layoutTopTriggers.addView(triggerView)
+        }
+    }
+
+    private fun getTriggerIcon(triggerName: String): Int {
+        return when (triggerName.lowercase()) {
+            "стресс" -> R.drawable.ic_trigger_stress
+            "недосып" -> R.drawable.ic_trigger_sleep
+            "яркий свет" -> R.drawable.ic_trigger_light
+            "громкий звук" -> R.drawable.ic_trigger_sound
+            "погода" -> R.drawable.ic_trigger_weather
+            "голод" -> R.drawable.ic_trigger_hunger
+            "кофеин" -> R.drawable.ic_trigger_caffeine
+            "алкоголь" -> R.drawable.ic_trigger_alcohol
+            "гормоны" -> R.drawable.ic_trigger_hormones
+            else -> R.drawable.ic_trigger_default
         }
     }
 
@@ -252,8 +285,7 @@ class MainFragment : Fragment() {
     }
 
     private fun updateMonthTitle() {
-        val formatter = DateTimeFormatter.ofPattern("LLLL yyyy")
-        textMonthTitle.text = currentYearMonth.format(formatter)
+        textMonthTitle.text = currentYearMonth.format(DateTimeFormatter.ofPattern("LLLL yyyy"))
     }
 
     private fun loadData() {
@@ -264,18 +296,13 @@ class MainFragment : Fragment() {
             val migraineRecords = repository.getMigraineRecordsForDateRange(startDate, endDate)
             migraineDays.clear()
             for (record in migraineRecords) {
-                if (!migraineDays.containsKey(record.date)) {
-                    migraineDays[record.date] = mutableListOf()
-                }
-                migraineDays[record.date]?.add(record)
+                migraineDays.computeIfAbsent(record.date) { mutableListOf() }.add(record)
             }
 
             val menstruationList = repository.getMenstruationDaysForMonth(startDate, endDate)
             menstruationDays.clear()
             for (day in menstruationList) {
-                if (day.isMenstruating) {
-                    menstruationDays.add(day.date)
-                }
+                if (day.isMenstruating) menstruationDays.add(day.date)
             }
 
             updateCalendar()
@@ -289,16 +316,14 @@ class MainFragment : Fragment() {
         val daysInMonth = currentYearMonth.lengthOfMonth()
         val days = mutableListOf<CalendarDay>()
 
-        val firstDayOfWeek = firstDayOfMonth.dayOfWeek.value
-        for (i in 1 until firstDayOfWeek) {
+        for (i in 1 until firstDayOfMonth.dayOfWeek.value) {
             days.add(CalendarDay(null, 0, false))
         }
 
         for (day in 1..daysInMonth) {
             val date = currentYearMonth.atDay(day)
             val maxIntensity = migraineDays[date]?.maxOfOrNull { it.intensity } ?: 0
-            val isMenstruating = menstruationDays.contains(date)
-            days.add(CalendarDay(date, maxIntensity, isMenstruating))
+            days.add(CalendarDay(date, maxIntensity, menstruationDays.contains(date)))
         }
         calendarAdapter.submitList(days)
     }
@@ -306,11 +331,7 @@ class MainFragment : Fragment() {
     private fun updateStatistics() {
         val allRecords = migraineDays.values.flatten()
         val daysWithMigraine = allRecords.map { it.date }.distinct().size
-        val avgIntensity = if (allRecords.isNotEmpty()) {
-            allRecords.map { it.intensity }.average()
-        } else {
-            0.0
-        }
+        val avgIntensity = if (allRecords.isNotEmpty()) allRecords.map { it.intensity }.average() else 0.0
         val maxIntensity = allRecords.maxOfOrNull { it.intensity } ?: 0
 
         textMigraineDaysCount.text = daysWithMigraine.toString()
@@ -318,7 +339,447 @@ class MainFragment : Fragment() {
         textMaxIntensity.text = "$maxIntensity/10"
     }
 
+    private fun exportRecordsToCSV(records: List<MigraineRecord>): File? {
+        return try {
+            val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val file = File(requireContext().cacheDir, "migraine_records_$timeStamp.csv")
+
+            FileOutputStream(file).use { outputStream ->
+                val headers = listOf("ID", "Дата", "Время начала", "Время окончания", "Интенсивность (1-10)", "Лекарство", "Тошнота", "Светобоязнь", "Аура", "Заметки")
+                outputStream.write(headers.joinToString(",").toByteArray())
+                outputStream.write("\n".toByteArray())
+
+                records.forEach { record ->
+                    val row = listOf(
+                        record.id.toString(), record.date.toString(), record.time.toString(),
+                        record.endTime?.toString() ?: "", record.intensity.toString(),
+                        record.medicationName?.replace(",", " ") ?: "",
+                        if (record.nausea) "Да" else "Нет",
+                        if (record.photophobia) "Да" else "Нет",
+                        if (record.aura) "Да" else "Нет",
+                        record.notes?.replace(",", " ") ?: ""
+                    )
+                    outputStream.write(row.joinToString(",").toByteArray())
+                    outputStream.write("\n".toByteArray())
+                }
+            }
+            file
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun shareFile(file: File) {
+        try {
+            val uri = FileProvider.getUriForFile(requireContext(), "${requireContext().packageName}.fileprovider", file)
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/csv"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(shareIntent, "Поделиться файлом"))
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(requireContext(), "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun showExportDialog() {
+        if (!checkStoragePermission()) {
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("📁 Доступ к файлам")
+                .setMessage("Для сохранения отчетов необходимо разрешить доступ к файлам. Вы можете сохранить отчет в кэш приложения или предоставить разрешение.")
+                .setPositiveButton("Предоставить доступ") { _, _ -> requestStoragePermission() }
+                .setNegativeButton("Сохранить в кэш") { _, _ -> showExportOptionsDialog() }
+                .show()
+            return
+        }
+        showExportOptionsDialog()
+    }
+
+    private fun showExportOptionsDialog() {
+        lifecycleScope.launch {
+            val allRecords = db.migraineRecordDao().getAllRecords()
+            if (allRecords.isEmpty()) {
+                Snackbar.make(requireView(), "Нет записей для экспорта", Snackbar.LENGTH_LONG).show()
+                return@launch
+            }
+
+            val dialogView = layoutInflater.inflate(R.layout.dialog_export_options, null)
+            val cardAll = dialogView.findViewById<com.google.android.material.card.MaterialCardView>(R.id.card_export_all)
+            val cardLastMonth = dialogView.findViewById<com.google.android.material.card.MaterialCardView>(R.id.card_export_last_month)
+            val cardDateRange = dialogView.findViewById<com.google.android.material.card.MaterialCardView>(R.id.card_export_date_range)
+            val cardStatistics = dialogView.findViewById<com.google.android.material.card.MaterialCardView>(R.id.card_export_statistics)
+            val textAllCount = dialogView.findViewById<TextView>(R.id.text_export_all_count)
+            textAllCount.text = "${allRecords.size} записей"
+
+            val dialog = MaterialAlertDialogBuilder(requireContext())
+                .setTitle("📤 Экспорт данных")
+                .setMessage("Выберите период для экспорта")
+                .setView(dialogView)
+                .setNegativeButton("Отмена", null)
+                .create()
+
+            cardAll.setOnClickListener { dialog.dismiss(); exportRecords(allRecords) }
+            cardLastMonth.setOnClickListener { dialog.dismiss(); exportLastMonthRecords() }
+            cardDateRange.setOnClickListener { dialog.dismiss(); showDateRangePicker() }
+            cardStatistics.setOnClickListener { dialog.dismiss(); exportStatistics() }
+            dialog.show()
+        }
+    }
+
+    private fun exportRecords(records: List<MigraineRecord>) {
+        val progressDialog = ProgressDialog(requireContext()).apply {
+            setMessage("📤 Экспорт данных...")
+            setProgressStyle(ProgressDialog.STYLE_HORIZONTAL)
+            max = records.size
+            setCancelable(false)
+            show()
+        }
+
+        lifecycleScope.launch {
+            try {
+                val file = exportRecordsToCSVWithProgress(records, progressDialog)
+                progressDialog.dismiss()
+                if (file != null) {
+                    val savedFile = saveFileToDownloads(file, "migraine_records")
+                    if (savedFile != null) showDownloadSuccessDialog(savedFile)
+                    else Snackbar.make(requireView(), "Ошибка сохранения файла", Snackbar.LENGTH_LONG).show()
+                } else {
+                    Snackbar.make(requireView(), "Ошибка создания файла", Snackbar.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                progressDialog.dismiss()
+                Snackbar.make(requireView(), "Ошибка: ${e.message}", Snackbar.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun showDownloadSuccessDialog(file: File) {
+        val fileSize = file.length() / 1024
+        showDownloadNotification(file)
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("✅ Экспорт завершен")
+            .setMessage("Файл успешно сохранен!\n\n📄 Имя: ${file.name}\n💾 Размер: $fileSize KB\n📁 Папка: ${file.parentFile?.absolutePath}")
+            .setPositiveButton("📂 Открыть файл") { _, _ ->
+                try {
+                    val uri = FileProvider.getUriForFile(requireContext(), "${requireContext().packageName}.fileprovider", file)
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, "text/csv")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) { openDownloadsFolder(file) }
+            }
+            .setNeutralButton("📂 Открыть папку") { _, _ -> openDownloadsFolder(file) }
+            .setNegativeButton("🔒 Закрыть", null)
+            .show()
+    }
+
+    private fun checkNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                AlertDialog.Builder(requireContext())
+                    .setTitle("🔔 Уведомления")
+                    .setMessage("Для отображения уведомлений о завершении экспорта файлов необходимо разрешение.")
+                    .setPositiveButton("Разрешить") { _, _ -> requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1003) }
+                    .setNegativeButton("Не сейчас", null)
+                    .show()
+            }
+        }
+    }
+
+    private fun openDownloadsFolder(file: File?) {
+        try {
+            val targetDir = file?.parentFile ?: File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MigraineTracker")
+            if (targetDir?.exists() != true) {
+                Snackbar.make(requireView(), "Папка не найдена", Snackbar.LENGTH_SHORT).show()
+                return
+            }
+            val folderUri = FileProvider.getUriForFile(requireContext(), "${requireContext().packageName}.fileprovider", targetDir)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(folderUri, "resource/folder")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            if (intent.resolveActivity(requireContext().packageManager) != null) startActivity(intent)
+            else Snackbar.make(requireView(), "Папка: ${targetDir.absolutePath}", Snackbar.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Snackbar.make(requireView(), "Папка: ${file?.parentFile?.absolutePath ?: "Загрузки/MigraineTracker"}", Snackbar.LENGTH_LONG).show()
+        }
+    }
+
+    private fun saveFileToDownloads(sourceFile: File, fileNamePrefix: String): File? {
+        return try {
+            val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val fileName = "${fileNamePrefix}_$timeStamp.csv"
+            val appDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MigraineTracker")
+            if (!appDir.exists()) appDir.mkdirs()
+            val destinationFile = File(appDir, fileName)
+            sourceFile.copyTo(destinationFile, overwrite = true)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) saveToMediaStore(destinationFile, fileName)
+            destinationFile
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun saveToMediaStore(file: File, fileName: String) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val resolver = requireContext().contentResolver
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "text/csv")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/MigraineTracker")
+                }
+                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                uri?.let {
+                    resolver.openOutputStream(it)?.use { outputStream ->
+                        file.inputStream().use { inputStream -> inputStream.copyTo(outputStream) }
+                    }
+                }
+            } else {
+                val appDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MigraineTracker")
+                if (!appDir.exists()) appDir.mkdirs()
+                val destinationFile = File(appDir, fileName)
+                file.copyTo(destinationFile, overwrite = true)
+                val intent = Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE)
+                intent.data = Uri.fromFile(destinationFile)
+                requireContext().sendBroadcast(intent)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun exportRecordsToCSVWithProgress(records: List<MigraineRecord>, progressDialog: ProgressDialog): File? {
+        return try {
+            val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val file = File(requireContext().cacheDir, "migraine_records_$timeStamp.csv")
+
+            FileOutputStream(file).use { outputStream ->
+                val headers = listOf("ID", "Дата", "День недели", "Время начала", "Время окончания", "Длительность (часы)", "Интенсивность (1-10)", "Уровень боли", "Лекарство", "Тошнота", "Светобоязнь", "Аура", "Триггеры", "Заметки")
+                outputStream.write(headers.joinToString(",").toByteArray())
+                outputStream.write("\n".toByteArray())
+
+                records.forEachIndexed { index, record ->
+                    val duration = if (record.endTime != null) {
+                        val durationMinutes = if (record.endTime.isAfter(record.time)) {
+                            java.time.Duration.between(record.time, record.endTime).toMinutes()
+                        } else {
+                            java.time.Duration.between(record.time, record.endTime.plusHours(24)).toMinutes()
+                        }
+                        String.format("%.1f", durationMinutes / 60.0)
+                    } else ""
+
+                    val painLevel = when (record.intensity) {
+                        in 0..2 -> "Слабая"
+                        in 3..6 -> "Средняя"
+                        else -> "Сильная"
+                    }
+
+                    val dayOfWeek = when (record.date.dayOfWeek.value) {
+                        1 -> "Понедельник"
+                        2 -> "Вторник"
+                        3 -> "Среда"
+                        4 -> "Четверг"
+                        5 -> "Пятница"
+                        6 -> "Суббота"
+                        7 -> "Воскресенье"
+                        else -> ""
+                    }
+
+                    val triggerIds = runBlocking { db.migraineRecordTriggerDao().getTriggerIdsForRecord(record.id) }
+                    val triggerNames = triggerIds.mapNotNull { id -> allTriggers.find { it.id == id }?.name }.joinToString("; ")
+
+                    val row = listOf(
+                        record.id.toString(), record.date.toString(), dayOfWeek, record.time.toString(),
+                        record.endTime?.toString() ?: "", duration, record.intensity.toString(), painLevel,
+                        record.medicationName?.replace(",", " ") ?: "",
+                        if (record.nausea) "Да" else "Нет",
+                        if (record.photophobia) "Да" else "Нет",
+                        if (record.aura) "Да" else "Нет",
+                        triggerNames.replace(",", ";"),
+                        record.notes?.replace(",", " ") ?: ""
+                    )
+                    outputStream.write(row.joinToString(",").toByteArray())
+                    outputStream.write("\n".toByteArray())
+                    progressDialog.progress = index + 1
+                }
+            }
+            file
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun checkStoragePermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun requestStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                    addCategory("android.intent.category.DEFAULT")
+                    data = Uri.parse("package:${requireContext().packageName}")
+                }
+                startActivityForResult(intent, 1001)
+            } catch (e: Exception) {
+                startActivityForResult(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION), 1001)
+            }
+        } else {
+            requestPermissions(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE), 1001)
+        }
+    }
+
+    private fun showDownloadNotification(file: File) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    Snackbar.make(requireView(), "Файл сохранен: ${file.name}", Snackbar.LENGTH_LONG).show()
+                    return
+                }
+            }
+
+            val notificationManager = requireContext().getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val fileUri = FileProvider.getUriForFile(requireContext(), "${requireContext().packageName}.fileprovider", file)
+
+            val openIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(fileUri, "text/csv")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            val openPendingIntent = PendingIntent.getActivity(requireContext(), 0, openIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+            val folderUri = FileProvider.getUriForFile(requireContext(), "${requireContext().packageName}.fileprovider", file.parentFile ?: file)
+            val folderIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(folderUri, "resource/folder")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            val folderPendingIntent = PendingIntent.getActivity(requireContext(), 1, folderIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/csv"
+                putExtra(Intent.EXTRA_STREAM, fileUri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            val sharePendingIntent = PendingIntent.getActivity(requireContext(), 2, Intent.createChooser(shareIntent, "Поделиться файлом"), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+            val notification = NotificationCompat.Builder(requireContext(), "download_channel")
+                .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setContentTitle("✅ Экспорт завершен")
+                .setContentText("${file.name} (${file.length() / 1024} KB)")
+                .setStyle(NotificationCompat.BigTextStyle().bigText("Файл сохранен в папке:\n${file.parentFile?.absolutePath ?: "Загрузки"}"))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(openPendingIntent)
+                .addAction(NotificationCompat.Action.Builder(android.R.drawable.ic_menu_share, "Поделиться", sharePendingIntent).build())
+                .addAction(NotificationCompat.Action.Builder(android.R.drawable.ic_menu_upload, "Открыть папку", folderPendingIntent).build())
+                .build()
+
+            notificationManager.notify((System.currentTimeMillis() % 100000).toInt(), notification)
+            Snackbar.make(requireView(), "✅ Файл сохранен: ${file.name}", Snackbar.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Snackbar.make(requireView(), "Файл сохранен: ${file.name}", Snackbar.LENGTH_LONG).show()
+        }
+    }
+
+    private fun exportLastMonthRecords() {
+        lifecycleScope.launch {
+            val endDate = LocalDate.now()
+            val startDate = endDate.minusMonths(1)
+            val records = db.migraineRecordDao().getMigraineRecordsForDateRange(startDate, endDate)
+            if (records.isEmpty()) Snackbar.make(requireView(), "Нет записей за последний месяц", Snackbar.LENGTH_LONG).show()
+            else exportRecords(records)
+        }
+    }
+
+    private fun showDateRangePicker() {
+        val datePicker = com.google.android.material.datepicker.MaterialDatePicker.Builder.dateRangePicker().setTitleText("Выберите период").build()
+        datePicker.addOnPositiveButtonClickListener { selection ->
+            val startDate = LocalDate.ofEpochDay(selection.first / (24 * 60 * 60 * 1000))
+            val endDate = LocalDate.ofEpochDay(selection.second / (24 * 60 * 60 * 1000))
+            lifecycleScope.launch {
+                val records = db.migraineRecordDao().getMigraineRecordsForDateRange(startDate, endDate)
+                if (records.isEmpty()) Snackbar.make(requireView(), "Нет записей за выбранный период", Snackbar.LENGTH_LONG).show()
+                else exportRecords(records)
+            }
+        }
+        datePicker.show(parentFragmentManager, "date_range_picker")
+    }
+
+    private fun exportStatistics() {
+        lifecycleScope.launch {
+            val allRecords = db.migraineRecordDao().getAllRecords()
+            if (allRecords.isEmpty()) {
+                Snackbar.make(requireView(), "Нет данных для статистики", Snackbar.LENGTH_LONG).show()
+                return@launch
+            }
+
+            val progressDialog = ProgressDialog(requireContext()).apply {
+                setMessage("Создание статистического отчета...")
+                setCancelable(false)
+                show()
+            }
+
+            try {
+                val avgIntensity = allRecords.map { it.intensity }.average()
+                val maxIntensity = allRecords.maxOfOrNull { it.intensity } ?: 0
+                val totalAttacks = allRecords.size
+                val daysWithMigraine = allRecords.map { it.date }.distinct().size
+
+                val statsReport = buildString {
+                    appendLine("СТАТИСТИКА МИГРЕНИ")
+                    appendLine("=".repeat(40))
+                    appendLine("Период: ${allRecords.first().date} - ${allRecords.last().date}\n")
+                    appendLine("📊 Общая статистика:")
+                    appendLine("  • Всего приступов: $totalAttacks")
+                    appendLine("  • Дней с мигренью: $daysWithMigraine")
+                    appendLine("  • Средняя интенсивность: ${String.format("%.1f", avgIntensity)}/10")
+                    appendLine("  • Максимальная боль: $maxIntensity/10\n")
+                    appendLine("💊 Принятые лекарства:")
+                    val medications = allRecords.mapNotNull { it.medicationName }.groupingBy { it }.eachCount()
+                    if (medications.isNotEmpty()) {
+                        medications.forEach { (med, count) -> appendLine("  • $med: $count ${if (count == 1) "раз" else "раза"}") }
+                    } else {
+                        appendLine("  • Нет записей о лекарствах")
+                    }
+                    appendLine("\n📈 Рекомендации:")
+                    if (avgIntensity > 7) appendLine("  • Высокий уровень боли - обратитесь к врачу")
+                    if (totalAttacks > 15) appendLine("  • Частые приступы - требуется профилактическое лечение")
+                    if (avgIntensity <= 3 && totalAttacks < 5) appendLine("  • Хороший контроль мигрени, продолжайте в том же духе!")
+                }
+
+                val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                val tempFile = File(requireContext().cacheDir, "migraine_statistics_$timeStamp.txt")
+                tempFile.writeText(statsReport)
+
+                val savedFile = saveFileToDownloads(tempFile, "migraine_statistics")
+                progressDialog.dismiss()
+                if (savedFile != null) showDownloadSuccessDialog(savedFile)
+                else Snackbar.make(requireView(), "Ошибка сохранения статистики", Snackbar.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                progressDialog.dismiss()
+                Snackbar.make(requireView(), "Ошибка: ${e.message}", Snackbar.LENGTH_LONG).show()
+            }
+        }
+    }
+
     private fun showAddMigraineDialog(date: LocalDate, recordToEdit: MigraineRecord? = null) {
+        if (date.isAfter(LocalDate.now()) && recordToEdit == null) {
+            Snackbar.make(requireView(), "Нельзя добавлять записи о мигрени в будущие даты", Snackbar.LENGTH_LONG).show()
+            return
+        }
+
         val progressDialog = ProgressDialog(requireContext()).apply {
             setMessage("Загрузка...")
             setCancelable(false)
@@ -326,15 +787,13 @@ class MainFragment : Fragment() {
         }
 
         lifecycleScope.launch {
-            if (allTriggers.isEmpty()) {
-                allTriggers = db.triggerDao().getAllTriggers()
-            }
+            if (allTriggers.isEmpty()) allTriggers = db.triggerDao().getAllTriggers()
             progressDialog.dismiss()
             showAddMigraineDialogInternal(date, recordToEdit)
         }
     }
 
-    private fun showAddMigraineDialogInternal(date: LocalDate, recordToEdit: MigraineRecord? = null) {
+    private fun showAddMigraineDialogInternal(date: LocalDate, recordToEdit: MigraineRecord?) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_add_migraine, null)
 
         val editTime = dialogView.findViewById<EditText>(R.id.edit_time)
@@ -355,9 +814,7 @@ class MainFragment : Fragment() {
         editTime.addTextChangedListener(com.example.migrainetracker.utils.TimeTextWatcher(editTime))
         editEndTime.addTextChangedListener(com.example.migrainetracker.utils.TimeTextWatcher(editEndTime))
 
-        val medications = listOf("Без лекарства", "Налгезин 500мг", "Налгезин 275мг",
-            "Суматриптан 50мг", "Суматриптан 100мг", "Эксенза", "Диалрапид 100", "Своё")
-
+        val medications = listOf("Без лекарства", "Налгезин 500мг", "Налгезин 275мг", "Суматриптан 50мг", "Суматриптан 100мг", "Эксенза", "Диалрапид 100", "Своё")
         val spinnerAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, medications)
         spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerMedication.adapter = spinnerAdapter
@@ -366,19 +823,12 @@ class MainFragment : Fragment() {
         fun updateDuration() {
             val startTimeStr = editTime.text.toString()
             val endTimeStr = editEndTime.text.toString()
-
-            if (startTimeStr.matches(Regex("^([01][0-9]|2[0-3]):[0-5][0-9]$")) &&
-                endTimeStr.matches(Regex("^([01][0-9]|2[0-3]):[0-5][0-9]$"))) {
+            if (startTimeStr.matches(Regex("^([01][0-9]|2[0-3]):[0-5][0-9]$")) && endTimeStr.matches(Regex("^([01][0-9]|2[0-3]):[0-5][0-9]$"))) {
                 val start = LocalTime.parse(startTimeStr)
                 val end = LocalTime.parse(endTimeStr)
-                val durationMinutes = if (end.isAfter(start)) {
-                    java.time.Duration.between(start, end).toMinutes()
-                } else {
-                    java.time.Duration.between(start, end.plusHours(24)).toMinutes()
-                }
-                val hours = durationMinutes / 60
-                val minutes = durationMinutes % 60
-                textDuration.text = "Длительность: ${hours}ч ${minutes}мин"
+                val durationMinutes = if (end.isAfter(start)) java.time.Duration.between(start, end).toMinutes()
+                else java.time.Duration.between(start, end.plusHours(24)).toMinutes()
+                textDuration.text = "Длительность: ${durationMinutes / 60}ч ${durationMinutes % 60}мин"
             } else {
                 textDuration.text = "Длительность: не указана"
             }
@@ -400,8 +850,7 @@ class MainFragment : Fragment() {
             val currentEnd = editEndTime.text.toString()
             val newTime = if (currentEnd.matches(Regex("^([01][0-9]|2[0-3]):[0-5][0-9]$"))) {
                 val time = LocalTime.parse(currentEnd)
-                val newTime = time.plusHours(1)
-                String.format("%02d:%02d", newTime.hour, newTime.minute)
+                String.format("%02d:%02d", time.plusHours(1).hour, time.plusHours(1).minute)
             } else {
                 val now = LocalTime.now()
                 String.format("%02d:%02d", now.hour, now.minute)
@@ -410,15 +859,11 @@ class MainFragment : Fragment() {
         }
 
         val selectedTriggerIds = mutableSetOf<Int>()
-
         if (recordToEdit != null) {
-            runBlocking {
-                val ids = db.migraineRecordTriggerDao().getTriggerIdsForRecord(recordToEdit.id)
-                selectedTriggerIds.addAll(ids)
-            }
+            runBlocking { selectedTriggerIds.addAll(db.migraineRecordTriggerDao().getTriggerIdsForRecord(recordToEdit.id)) }
         }
 
-        val triggerAdapter = TriggerCheckboxAdapter(allTriggers, selectedTriggerIds)
+        val triggerAdapter = TriggerCheckboxAdapter(allTriggers.distinctBy { it.id }, selectedTriggerIds)
         recyclerTriggers.layoutManager = GridLayoutManager(requireContext(), 2)
         recyclerTriggers.adapter = triggerAdapter
 
@@ -433,11 +878,8 @@ class MainFragment : Fragment() {
             editNotes.setText(recordToEdit.notes ?: "")
             if (!recordToEdit.medicationName.isNullOrEmpty()) {
                 val index = medications.indexOf(recordToEdit.medicationName)
-                if (index != -1) {
-                    spinnerMedication.setSelection(index)
-                } else {
-                    editMedication.setText(recordToEdit.medicationName)
-                }
+                if (index != -1) spinnerMedication.setSelection(index)
+                else editMedication.setText(recordToEdit.medicationName)
             }
             updateDuration()
         } else {
@@ -475,26 +917,21 @@ class MainFragment : Fragment() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
-        val title = if (recordToEdit != null) "Редактировать запись" else "Добавить запись"
-
         AlertDialog.Builder(requireContext())
-            .setTitle("$title - ${date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))}")
+            .setTitle("${if (recordToEdit != null) "Редактировать запись" else "Добавить запись"} - ${date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))}")
             .setView(dialogView)
             .setPositiveButton("Сохранить") { _, _ ->
                 val timeStr = editTime.text.toString()
                 val endTimeStr = editEndTime.text.toString()
-
                 val timePattern = Regex("^([01][0-9]|2[0-3]):[0-5][0-9]$")
+
                 if (!timePattern.matches(timeStr)) {
-                    Toast.makeText(requireContext(), "Введите время в формате ЧЧ:ММ (например 14:30)", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Введите время в формате ЧЧ:ММ", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
 
                 val parts = timeStr.split(":")
-                val hour = parts[0].toInt()
-                val minute = parts[1].toInt()
-                val time = LocalTime.of(hour, minute)
-
+                val time = LocalTime.of(parts[0].toInt(), parts[1].toInt())
                 val endTime = if (endTimeStr.isNotBlank() && timePattern.matches(endTimeStr)) {
                     val endParts = endTimeStr.split(":")
                     LocalTime.of(endParts[0].toInt(), endParts[1].toInt())
@@ -503,7 +940,6 @@ class MainFragment : Fragment() {
                 val intensity = seekBar.progress
                 val selectedMedication = spinnerMedication.selectedItem.toString()
                 val customMedication = editMedication.text.toString()
-
                 val medicationName = when {
                     selectedMedication == "Без лекарства" -> null
                     customMedication.isNotBlank() -> customMedication
@@ -529,19 +965,14 @@ class MainFragment : Fragment() {
                     try {
                         if (recordToEdit != null) {
                             repository.updateMigraineRecord(record)
-                            val existingId = recordToEdit.id
-                            db.migraineRecordTriggerDao().deleteByRecordId(existingId)
+                            db.migraineRecordTriggerDao().deleteByRecordId(recordToEdit.id)
                             for (triggerId in selectedTriggerIds) {
-                                db.migraineRecordTriggerDao().insert(
-                                    MigraineRecordTrigger(recordId = existingId, triggerId = triggerId)
-                                )
+                                db.migraineRecordTriggerDao().insert(MigraineRecordTrigger(recordId = recordToEdit.id, triggerId = triggerId))
                             }
                         } else {
                             val newId = repository.addMigraineRecord(record)
                             for (triggerId in selectedTriggerIds) {
-                                db.migraineRecordTriggerDao().insert(
-                                    MigraineRecordTrigger(recordId = newId.toInt(), triggerId = triggerId)
-                                )
+                                db.migraineRecordTriggerDao().insert(MigraineRecordTrigger(recordId = newId.toInt(), triggerId = triggerId))
                             }
                         }
                         loadData()
@@ -558,84 +989,70 @@ class MainFragment : Fragment() {
         lifecycleScope.launch {
             val records = migraineDays[date] ?: emptyList()
             val isMenstruating = menstruationDays.contains(date)
+            val isFutureDate = date.isAfter(LocalDate.now())
 
             val recordsWithTriggers = records.map { record ->
                 val triggerIds = db.migraineRecordTriggerDao().getTriggerIdsForRecord(record.id)
-                val triggerNames = triggerIds.mapNotNull { id ->
-                    allTriggers.find { it.id == id }?.name
-                }
+                val triggerNames = triggerIds.mapNotNull { id -> allTriggers.find { it.id == id }?.name }
                 record to triggerNames
             }
 
-            val builder = AlertDialog.Builder(requireContext())
-            builder.setTitle("Детали дня - ${date.format(DateTimeFormatter.ofPattern("dd MMMM yyyy"))}")
-
-            val view = layoutInflater.inflate(R.layout.dialog_day_details, null)
-            val textRecordsList = view.findViewById<TextView>(R.id.text_records_list)
+            val dialogView = layoutInflater.inflate(R.layout.dialog_day_details, null)
+            val textRecordsList = dialogView.findViewById<TextView>(R.id.text_records_list)
+            val btnExportDay = dialogView.findViewById<Button>(R.id.btn_export_day)
 
             val message = buildString {
-                if (isMenstruating) {
-                    append(" День месячных\n\n")
-                }
-                if (recordsWithTriggers.isEmpty()) {
-                    append("Нет записей о мигрени")
-                } else {
-                    append(" Записи о мигрени:\n")
+                if (isFutureDate) append("⚠️ Это будущая дата\nДобавление записей доступно только для прошедших и текущего дня\n\n")
+                if (isMenstruating) append("🩸 День месячных\n\n")
+                if (recordsWithTriggers.isEmpty()) append("Нет записей о мигрени")
+                else {
+                    append("📝 Записи о мигрени:\n\n")
                     for ((index, pair) in recordsWithTriggers.withIndex()) {
                         val record = pair.first
                         val triggers = pair.second
-                        append("${index + 1}. ${record.time.format(DateTimeFormatter.ofPattern("HH:mm"))} - ")
-                        append("Боль: ${record.intensity}/10")
-                        if (record.medicationName != null) {
-                            append("  ${record.medicationName}")
-                        }
-                        if (triggers.isNotEmpty()) {
-                            append("\n    ⚡ Триггеры: ${triggers.joinToString(", ")}")
-                        }
+                        append("${index + 1}. ${record.time.format(DateTimeFormatter.ofPattern("HH:mm"))}\n")
+                        append("   💢 Боль: ${record.intensity}/10\n")
+                        if (record.medicationName != null) append("   💊 ${record.medicationName}\n")
+                        if (triggers.isNotEmpty()) append("   ⚡ Триггеры: ${triggers.joinToString(", ")}\n")
                         append("\n")
                     }
                 }
             }
             textRecordsList.text = message
 
-            builder.setView(view)
-            builder.setPositiveButton("Закрыть", null)
-            builder.setNeutralButton("Добавить запись") { _, _ ->
-                showAddMigraineDialog(date)
+            btnExportDay.setOnClickListener {
+                if (records.isNotEmpty()) exportRecords(records)
+                else Snackbar.make(dialogView, "Нет записей для экспорта", Snackbar.LENGTH_LONG).show()
             }
 
-            if (records.isNotEmpty()) {
-                builder.setNegativeButton("Управление записями") { _, _ ->
-                    showRecordManagementDialog(date, records)
-                }
-            }
+            val dialogBuilder = MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Детали дня - ${date.format(DateTimeFormatter.ofPattern("dd MMMM yyyy"))}")
+                .setView(dialogView)
+                .setPositiveButton("Закрыть", null)
 
-            builder.show()
+            if (!isFutureDate) dialogBuilder.setNeutralButton("Добавить запись") { _, _ -> showAddMigraineDialog(date) }
+            if (records.isNotEmpty()) dialogBuilder.setNegativeButton("Управление") { _, _ -> showRecordManagementDialog(date, records) }
+
+            dialogBuilder.show()
         }
     }
 
     private fun showRecordManagementDialog(date: LocalDate, records: List<MigraineRecord>) {
         val items = records.mapIndexed { index, record ->
-            "${index + 1}. ${record.time.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${record.intensity}/10" +
-                    if (record.medicationName != null) " (${record.medicationName})" else ""
+            "${index + 1}. ${record.time.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${record.intensity}/10" + (if (record.medicationName != null) " (${record.medicationName})" else "")
         }.toTypedArray()
 
         AlertDialog.Builder(requireContext())
             .setTitle("Выберите запись")
-            .setItems(items) { _, which ->
-                val selectedRecord = records[which]
-                showRecordActionDialog(date, selectedRecord)
-            }
+            .setItems(items) { _, which -> showRecordActionDialog(date, records[which]) }
             .setNegativeButton("Отмена", null)
             .show()
     }
 
     private fun showRecordActionDialog(date: LocalDate, record: MigraineRecord) {
-        val actions = arrayOf(" Редактировать", " Удалить")
-
         AlertDialog.Builder(requireContext())
             .setTitle("Действие с записью")
-            .setItems(actions) { _, which ->
+            .setItems(arrayOf("Редактировать", "Удалить")) { _, which ->
                 when (which) {
                     0 -> showAddMigraineDialog(date, record)
                     1 -> showDeleteRecordConfirmDialog(record)
@@ -663,24 +1080,18 @@ class MainFragment : Fragment() {
 
     private fun getIntensityColor(intensity: Int): Int {
         return when (intensity) {
-            0 -> Color.parseColor("#4CAF50")
-            in 1..3 -> Color.parseColor("#8BC34A")
-            in 4..6 -> Color.parseColor("#FFC107")
-            in 7..8 -> Color.parseColor("#FF9800")
-            else -> Color.parseColor("#F44336")
+            0 -> ContextCompat.getColor(requireContext(), R.color.pain_none)
+            in 1..3 -> ContextCompat.getColor(requireContext(), R.color.pain_mild)
+            in 4..6 -> ContextCompat.getColor(requireContext(), R.color.pain_moderate)
+            in 7..8 -> ContextCompat.getColor(requireContext(), R.color.pain_severe)
+            else -> ContextCompat.getColor(requireContext(), R.color.pain_extreme)
         }
     }
 
-    private fun getIntensityColorWithAlpha(intensity: Int, alpha: Int): Int {
-        val color = getIntensityColor(intensity)
-        return ColorUtils.setAlphaComponent(color, alpha)
-    }
+    private fun getIntensityColorWithAlpha(intensity: Int, alpha: Int): Int = ColorUtils.setAlphaComponent(getIntensityColor(intensity), alpha)
 
     private fun isDarkColor(color: Int): Boolean {
-        val red = Color.red(color)
-        val green = Color.green(color)
-        val blue = Color.blue(color)
-        val brightness = (0.299 * red + 0.587 * green + 0.114 * blue)
+        val brightness = 0.299 * Color.red(color) + 0.587 * Color.green(color) + 0.114 * Color.blue(color)
         return brightness < 128
     }
 
@@ -691,24 +1102,13 @@ class MainFragment : Fragment() {
         textEmptyReminders = dialogView.findViewById(R.id.text_empty_reminders)
 
         recyclerReminders.layoutManager = LinearLayoutManager(requireContext())
-        remindersAdapter = RemindersAdapter(
-            reminders = emptyList(),
-            onDeleteClick = { reminder -> deleteReminder(reminder) },
-            onToggleClick = { reminder, isEnabled -> toggleReminder(reminder, isEnabled) }
-        )
+        remindersAdapter = RemindersAdapter(emptyList(), { deleteReminder(it) }, { reminder, isEnabled -> toggleReminder(reminder, isEnabled) })
         recyclerReminders.adapter = remindersAdapter
 
         loadRemindersData()
+        btnAddReminder.setOnClickListener { showAddReminderDialog() }
 
-        btnAddReminder.setOnClickListener {
-            showAddReminderDialog()
-        }
-
-        AlertDialog.Builder(requireContext())
-            .setTitle("Напоминания о лекарствах")
-            .setView(dialogView)
-            .setPositiveButton("Закрыть", null)
-            .show()
+        AlertDialog.Builder(requireContext()).setView(dialogView).setPositiveButton("Закрыть", null).show()
     }
 
     private fun loadRemindersData() {
@@ -768,12 +1168,8 @@ class MainFragment : Fragment() {
         lifecycleScope.launch {
             val updatedReminder = reminder.copy(isEnabled = isEnabled)
             db.medicineReminderDao().updateReminder(updatedReminder)
-
-            if (isEnabled) {
-                scheduleReminder(updatedReminder)
-            } else {
-                cancelReminder(reminder.id)
-            }
+            if (isEnabled) scheduleReminder(updatedReminder)
+            else cancelReminder(reminder.id)
             refreshRemindersList()
         }
     }
@@ -781,12 +1177,7 @@ class MainFragment : Fragment() {
     private fun cancelReminder(reminderId: Int) {
         val alarmManager = requireContext().getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(requireContext(), ReminderReceiver::class.java)
-        val pendingIntent = PendingIntent.getBroadcast(
-            requireContext(),
-            reminderId,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val pendingIntent = PendingIntent.getBroadcast(requireContext(), reminderId, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         alarmManager.cancel(pendingIntent)
     }
 
@@ -797,20 +1188,10 @@ class MainFragment : Fragment() {
         val checkRepeat = dialogView.findViewById<CheckBox>(R.id.check_repeat)
         val spinnerRepeat = dialogView.findViewById<Spinner>(R.id.spinner_repeat)
 
-        val btnTime9 = dialogView.findViewById<MaterialButton>(R.id.btn_time_9)
-        val btnTime12 = dialogView.findViewById<MaterialButton>(R.id.btn_time_12)
-        val btnTime15 = dialogView.findViewById<MaterialButton>(R.id.btn_time_15)
-        val btnTime18 = dialogView.findViewById<MaterialButton>(R.id.btn_time_18)
-        val btnTime21 = dialogView.findViewById<MaterialButton>(R.id.btn_time_21)
-
+        val buttons = listOf(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23).associateWith { dialogView.findViewById<MaterialButton>(resources.getIdentifier("btn_time_$it", "id", requireContext().packageName)) }
         editReminderTime.addTextChangedListener(com.example.migrainetracker.utils.TimeTextWatcher(editReminderTime))
         editReminderTime.setText("09:00")
-
-        btnTime9.setOnClickListener { editReminderTime.setText("09:00") }
-        btnTime12.setOnClickListener { editReminderTime.setText("12:00") }
-        btnTime15.setOnClickListener { editReminderTime.setText("15:00") }
-        btnTime18.setOnClickListener { editReminderTime.setText("18:00") }
-        btnTime21.setOnClickListener { editReminderTime.setText("21:00") }
+        buttons.forEach { (hour, button) -> button.setOnClickListener { editReminderTime.setText(String.format("%02d:00", hour)) } }
 
         val repeatIntervals = listOf("Каждые 24 часа (ежедневно)", "Каждые 12 часов", "Каждые 8 часов", "Каждые 6 часов", "Каждые 4 часа", "Каждые 2 часа", "Каждый час")
         val repeatValues = listOf(24, 12, 8, 6, 4, 2, 1)
@@ -818,30 +1199,16 @@ class MainFragment : Fragment() {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerRepeat.adapter = adapter
         spinnerRepeat.isEnabled = false
+        checkRepeat.setOnCheckedChangeListener { _, isChecked -> spinnerRepeat.isEnabled = isChecked }
 
-        checkRepeat.setOnCheckedChangeListener { _, isChecked ->
-            spinnerRepeat.isEnabled = isChecked
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(
-                    requireContext(),
-                    android.Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                AlertDialog.Builder(requireContext())
-                    .setTitle("Разрешение на уведомления")
-                    .setMessage("Для получения напоминаний необходимо разрешить уведомления.")
-                    .setPositiveButton("Разрешить") { _, _ ->
-                        requestPermissions(
-                            arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
-                            1002
-                        )
-                    }
-                    .setNegativeButton("Отмена", null)
-                    .show()
-                return
-            }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            AlertDialog.Builder(requireContext())
+                .setTitle("Разрешение на уведомления")
+                .setMessage("Для получения напоминаний необходимо разрешить уведомления.")
+                .setPositiveButton("Разрешить") { _, _ -> requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1002) }
+                .setNegativeButton("Отмена", null)
+                .show()
+            return
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -850,22 +1217,14 @@ class MainFragment : Fragment() {
                 AlertDialog.Builder(requireContext())
                     .setTitle("Разрешение на будильники")
                     .setMessage("Для точных напоминаний о лекарствах необходимо разрешить планирование будильников в настройках.")
-                    .setPositiveButton("Открыть настройки") { _, _ ->
-                        startActivity(Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM))
-                    }
+                    .setPositiveButton("Открыть настройки") { _, _ -> startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)) }
                     .setNegativeButton("Отмена", null)
                     .show()
                 return
             }
         }
 
-        val dialog = AlertDialog.Builder(requireContext())
-            .setTitle("Новое напоминание")
-            .setView(dialogView)
-            .setPositiveButton("Добавить", null)
-            .setNegativeButton("Отмена", null)
-            .create()
-
+        val dialog = AlertDialog.Builder(requireContext()).setView(dialogView).setPositiveButton("Добавить", null).setNegativeButton("Отмена", null).create()
         dialog.setOnShowListener {
             val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
             positiveButton.setOnClickListener {
@@ -883,34 +1242,22 @@ class MainFragment : Fragment() {
                 }
 
                 val parts = timeStr.split(":")
-                val hour = parts[0].toIntOrNull() ?: 0
-                val minute = parts[1].toIntOrNull() ?: 0
-                val reminderTime = LocalTime.of(hour, minute)
+                val reminderTime = LocalTime.of(parts[0].toInt(), parts[1].toInt())
                 val repeatInterval = if (checkRepeat.isChecked) repeatValues[spinnerRepeat.selectedItemPosition] else 0
 
-                if (repeatInterval == 0) {
-                    val now = LocalTime.now()
-                    if (reminderTime.isBefore(now)) {
-                        AlertDialog.Builder(requireContext())
-                            .setTitle("Время прошло")
-                            .setMessage("Вы выбрали время, которое уже прошло сегодня. Напоминание установится на завтра.")
-                            .setPositiveButton("OK", null)
-                            .show()
-                    }
+                if (repeatInterval == 0 && reminderTime.isBefore(LocalTime.now())) {
+                    AlertDialog.Builder(requireContext())
+                        .setTitle("Время прошло")
+                        .setMessage("Вы выбрали время, которое уже прошло сегодня. Напоминание установится на завтра.")
+                        .setPositiveButton("OK", null)
+                        .show()
                 }
 
                 lifecycleScope.launch {
                     try {
-                        val reminder = MedicineReminder(
-                            medicineName = medicineName,
-                            reminderTime = reminderTime,
-                            isEnabled = true,
-                            repeatInterval = repeatInterval
-                        )
+                        val reminder = MedicineReminder(medicineName = medicineName, reminderTime = reminderTime, isEnabled = true, repeatInterval = repeatInterval)
                         val id = db.medicineReminderDao().insertReminder(reminder)
-                        val reminderWithId = reminder.copy(id = id.toInt())
-                        scheduleReminder(reminderWithId)
-
+                        scheduleReminder(reminder.copy(id = id.toInt()))
                         refreshRemindersList()
                         dialog.dismiss()
                     } catch (e: Exception) {
@@ -919,7 +1266,6 @@ class MainFragment : Fragment() {
                 }
             }
         }
-
         dialog.show()
     }
 
@@ -933,39 +1279,20 @@ class MainFragment : Fragment() {
             putExtra("repeat_interval", reminder.repeatInterval)
         }
 
-        val pendingIntent = PendingIntent.getBroadcast(
-            requireContext(),
-            reminder.id,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val calendar = java.util.Calendar.getInstance().apply {
-            set(java.util.Calendar.HOUR_OF_DAY, reminder.reminderTime.hour)
-            set(java.util.Calendar.MINUTE, reminder.reminderTime.minute)
-            set(java.util.Calendar.SECOND, 0)
-            set(java.util.Calendar.MILLISECOND, 0)
-
-            if (timeInMillis <= System.currentTimeMillis()) {
-                add(java.util.Calendar.DAY_OF_YEAR, 1)
-            }
+        val pendingIntent = PendingIntent.getBroadcast(requireContext(), reminder.id, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, reminder.reminderTime.hour)
+            set(Calendar.MINUTE, reminder.reminderTime.minute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
         }
 
         try {
             if (reminder.repeatInterval > 0) {
-                val intervalMillis = (reminder.repeatInterval * 60 * 60 * 1000).toLong()
-                alarmManager.setRepeating(
-                    AlarmManager.RTC_WAKEUP,
-                    calendar.timeInMillis,
-                    intervalMillis,
-                    pendingIntent
-                )
+                alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, (reminder.repeatInterval * 60 * 60 * 1000).toLong(), pendingIntent)
             } else {
-                alarmManager.setExact(
-                    AlarmManager.RTC_WAKEUP,
-                    calendar.timeInMillis,
-                    pendingIntent
-                )
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
             }
         } catch (e: Exception) {
             android.util.Log.e("Reminder", "Ошибка установки будильника", e)
@@ -985,15 +1312,10 @@ class MainFragment : Fragment() {
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): DayViewHolder {
-            val view = LayoutInflater.from(parent.context)
-                .inflate(R.layout.item_calendar_day, parent, false)
-            return DayViewHolder(view)
+            return DayViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.item_calendar_day, parent, false))
         }
 
-        override fun onBindViewHolder(holder: DayViewHolder, position: Int) {
-            holder.bind(days[position])
-        }
-
+        override fun onBindViewHolder(holder: DayViewHolder, position: Int) = holder.bind(days[position])
         override fun getItemCount() = days.size
 
         inner class DayViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -1003,47 +1325,49 @@ class MainFragment : Fragment() {
 
             fun bind(day: CalendarDay) {
                 if (day.date != null) {
-                    textDay.text = day.date.dayOfMonth.toString()
-                    textDay.isEnabled = true
-                    textDay.visibility = View.VISIBLE
-
+                    val today = LocalDate.now()
+                    val isFutureDate = day.date.isAfter(today)
                     val isNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
 
-                    when (day.intensity) {
-                        0 -> {
-                            imagePain.setImageResource(R.drawable.ic_no_migraine)
-                            imagePain.visibility = View.VISIBLE
-                        }
-                        in 1..3 -> {
-                            imagePain.setImageResource(R.drawable.ic_migraine_mild)
-                            imagePain.visibility = View.VISIBLE
-                        }
-                        in 4..6 -> {
-                            imagePain.setImageResource(R.drawable.ic_migraine_moderate)
-                            imagePain.visibility = View.VISIBLE
-                        }
-                        else -> {
-                            imagePain.setImageResource(R.drawable.ic_migraine_severe)
-                            imagePain.visibility = View.VISIBLE
-                        }
-                    }
+                    textDay.text = day.date.dayOfMonth.toString()
+                    textDay.isEnabled = !isFutureDate
+                    textDay.visibility = View.VISIBLE
 
+                    when (day.intensity) {
+                        0 -> imagePain.setImageResource(R.drawable.ic_no_migraine)
+                        in 1..3 -> imagePain.setImageResource(R.drawable.ic_migraine_mild)
+                        in 4..6 -> imagePain.setImageResource(R.drawable.ic_migraine_moderate)
+                        else -> imagePain.setImageResource(R.drawable.ic_migraine_severe)
+                    }
+                    imagePain.visibility = View.VISIBLE
                     imageMenstruation.visibility = if (day.isMenstruating) View.VISIBLE else View.GONE
 
-                    if (day.intensity > 0) {
-                        val backgroundColor = getIntensityColorWithAlpha(day.intensity, 100)
-                        textDay.setBackgroundColor(backgroundColor)
-                        val intensityColor = getIntensityColor(day.intensity)
-                        textDay.setTextColor(if (isDarkColor(intensityColor)) Color.WHITE else Color.BLACK)
+                    if (isFutureDate) {
+                        textDay.alpha = 0.5f
+                        imagePain.alpha = 0.5f
+                        imageMenstruation.alpha = 0.5f
+                        textDay.setBackgroundColor(Color.TRANSPARENT)
+                        textDay.setTextColor(if (isNightMode) Color.GRAY else Color.LTGRAY)
                     } else {
-                        textDay.background = null
-                        textDay.setTextColor(if (isNightMode) Color.WHITE else Color.BLACK)
+                        textDay.alpha = 1f
+                        imagePain.alpha = 1f
+                        imageMenstruation.alpha = 1f
+                        if (day.intensity > 0) {
+                            val backgroundColor = getIntensityColorWithAlpha(day.intensity, 100)
+                            textDay.setBackgroundColor(backgroundColor)
+                            textDay.setTextColor(if (isDarkColor(getIntensityColor(day.intensity))) Color.WHITE else Color.BLACK)
+                        } else {
+                            textDay.background = null
+                            textDay.setTextColor(if (isNightMode) Color.WHITE else Color.BLACK)
+                        }
                     }
 
-                    itemView.setOnClickListener { onDayClick(day.date) }
-                    itemView.setOnLongClickListener {
-                        onDayLongClick(day.date)
-                        true
+                    if (!isFutureDate) {
+                        itemView.setOnClickListener { onDayClick(day.date) }
+                        itemView.setOnLongClickListener { onDayLongClick(day.date); true }
+                    } else {
+                        itemView.setOnClickListener(null)
+                        itemView.setOnLongClickListener(null)
                     }
                 } else {
                     textDay.text = ""
@@ -1057,9 +1381,5 @@ class MainFragment : Fragment() {
         }
     }
 
-    data class CalendarDay(
-        val date: LocalDate?,
-        val intensity: Int,
-        val isMenstruating: Boolean
-    )
+    data class CalendarDay(val date: LocalDate?, val intensity: Int, val isMenstruating: Boolean)
 }

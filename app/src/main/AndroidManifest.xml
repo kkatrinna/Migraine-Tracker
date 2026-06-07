@@ -2,13 +2,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Разрешения для хранения -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="29" />
+        android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+
+    <!-- Разрешения для будильников -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
+    <!-- Разрешения для уведомлений -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" /> <!-- ДОБАВИТЬ - для пробуждения устройства -->
-    <uses-permission android:name="android.permission.VIBRATE" /> <!-- ДОБАВИТЬ - для вибрации -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:allowBackup="true"
@@ -19,6 +27,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MigraineTracker"
+        android:usesCleartextTraffic="true"
         tools:targetApi="31">
 
         <activity
@@ -32,14 +41,21 @@
             </intent-filter>
         </activity>
 
+        <!-- Receiver для напоминаний -->
         <receiver
             android:name=".utils.ReminderReceiver"
             android:exported="false" />
 
-        <!-- ДОБАВИТЬ - для корректной работы будильников на Android 12+ -->
-        <receiver
-            android:name=".utils.ReminderReceiver"
-            android:exported="false" />
+        <!-- FileProvider для экспорта файлов -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 

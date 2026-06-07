@@ -20,33 +20,28 @@ class TriggerCheckboxAdapter(
     }
 
     override fun onBindViewHolder(holder: TriggerViewHolder, position: Int) {
-        holder.bind(triggers[position])
+        val trigger = triggers[position]
+        holder.bind(trigger)
     }
 
     override fun getItemCount(): Int = triggers.size
 
-    fun getSelectedTriggerIds(): Set<Int> = selectedIds.toSet()
+    fun getSelectedTriggerIds(): List<Int> = selectedIds.toList()
 
     inner class TriggerViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val checkBox: CheckBox = itemView.findViewById(R.id.checkbox_trigger)
-        private var currentTrigger: Trigger? = null
-
-        init {
-            checkBox.setOnCheckedChangeListener { _, isChecked ->
-                currentTrigger?.let { trigger ->
-                    if (isChecked) {
-                        selectedIds.add(trigger.id)
-                    } else {
-                        selectedIds.remove(trigger.id)
-                    }
-                }
-            }
-        }
 
         fun bind(trigger: Trigger) {
-            currentTrigger = trigger
             checkBox.text = trigger.name
             checkBox.isChecked = selectedIds.contains(trigger.id)
+
+            checkBox.setOnCheckedChangeListener { _, isChecked ->
+                if (isChecked) {
+                    selectedIds.add(trigger.id)
+                } else {
+                    selectedIds.remove(trigger.id)
+                }
+            }
         }
     }
 }

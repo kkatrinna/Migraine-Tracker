@@ -8,5 +8,5 @@ import java.time.LocalDate
 data class MenstruationDay(
     @PrimaryKey
     val date: LocalDate,
-    val isMenstruating: Boolean
+    val isMenstruating: Boolean = false
 )
