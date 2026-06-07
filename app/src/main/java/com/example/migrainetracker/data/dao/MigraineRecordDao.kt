@@ -17,7 +17,7 @@ interface MigraineRecordDao {
     suspend fun getMaxIntensityForDay(date: LocalDate): Int?
 
     @Insert
-    suspend fun insert(record: MigraineRecord)
+    suspend fun insert(record: MigraineRecord): Long
 
     @Delete
     suspend fun delete(record: MigraineRecord)
@@ -33,4 +33,10 @@ interface MigraineRecordDao {
 
     @Update
     suspend fun update(record: MigraineRecord)
+
+    @Query("SELECT * FROM migraine_records WHERE date BETWEEN :startDate AND :endDate ORDER BY time")
+    suspend fun getMigraineRecordsForDateRange(startDate: LocalDate, endDate: LocalDate): List<MigraineRecord>
+
+    @Query("SELECT AVG(CAST((strftime('%s', endTime) - strftime('%s', time)) AS REAL) / 3600) FROM migraine_records WHERE endTime IS NOT NULL")
+    suspend fun getAverageDuration(): Double?
 }

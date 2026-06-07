@@ -14,12 +14,9 @@ data class DayCardData(
 
 class TrackerRepository(private val db: AppDatabase) {
 
-    suspend fun getMigraineRecordsForDay(date: LocalDate): List<MigraineRecord> {
-        return db.migraineRecordDao().getRecordsForDay(date)
-    }
 
-    suspend fun addMigraineRecord(record: MigraineRecord) {
-        db.migraineRecordDao().insert(record)
+    suspend fun addMigraineRecord(record: MigraineRecord): Long {
+        return db.migraineRecordDao().insert(record)
     }
 
     suspend fun deleteMigraineRecord(record: MigraineRecord) {
@@ -64,20 +61,4 @@ class TrackerRepository(private val db: AppDatabase) {
         db.migraineRecordDao().update(record)
     }
 
-
-    suspend fun getDayCardData(date: LocalDate): DayCardData {
-        val maxIntensity = db.migraineRecordDao().getMaxIntensityForDay(date)
-        val isMenstruating = db.menstruationDayDao().getDaysInRange(date, date)
-            .firstOrNull()?.isMenstruating ?: false
-        val avgPressure = db.pressureRecordDao().getAveragePressureForDay(date)
-        val avgPulse = db.pulseRecordDao().getAveragePulseForDay(date)
-
-        return DayCardData(
-            date = date,
-            maxIntensity = maxIntensity,
-            isMenstruating = isMenstruating,
-            avgPressure = avgPressure,
-            avgPulse = avgPulse
-        )
-    }
 }

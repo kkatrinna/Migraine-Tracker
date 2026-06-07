@@ -11,7 +11,12 @@ data class MigraineRecord(
     val id: Int = 0,
     val date: LocalDate,
     val time: LocalTime,
+    val endTime: LocalTime? = null,
     val intensity: Int,
-    val medicationName: String?,
-    val medicationTime: LocalTime?
+    val medicationName: String? = null,
+    val medicationTime: LocalTime? = null,
+    val nausea: Boolean = false,
+    val photophobia: Boolean = false,
+    val aura: Boolean = false,
+    val notes: String? = null
 )

@@ -28,9 +28,9 @@ import java.time.format.DateTimeFormatter
 class BloodPressureFragment : Fragment() {
 
     private lateinit var repository: TrackerRepository
+    private lateinit var db: AppDatabase
     private lateinit var pressureAdapter: PressureCardAdapter
     private lateinit var pulseAdapter: PulseCardAdapter
-
     private lateinit var textPressureCount: TextView
     private lateinit var textAvgSystolic: TextView
     private lateinit var textAvgDiastolic: TextView
@@ -52,7 +52,7 @@ class BloodPressureFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val db = AppDatabase.getInstance(requireContext())
+        db = AppDatabase.getInstance(requireContext())
         repository = TrackerRepository(db)
 
         textPressureCount = view.findViewById(R.id.text_pressure_count)
@@ -78,12 +78,10 @@ class BloodPressureFragment : Fragment() {
 
     private fun setupRecyclerViews(view: View) {
         pressureAdapter = PressureCardAdapter(
-            onItemClick = { record ->
-                showPressureDetails(record)
-            },
-            onItemDelete = { record ->
+            onItemClick = { showPressureDetails(it) },
+            onItemDelete = {
                 lifecycleScope.launch {
-                    repository.deletePressureRecord(record)
+                    repository.deletePressureRecord(it)
                     loadData()
                 }
             }
@@ -95,12 +93,10 @@ class BloodPressureFragment : Fragment() {
         }
 
         pulseAdapter = PulseCardAdapter(
-            onItemClick = { record ->
-                showPulseDetails(record)
-            },
-            onItemDelete = { record ->
+            onItemClick = { showPulseDetails(it) },
+            onItemDelete = {
                 lifecycleScope.launch {
-                    repository.deletePulseRecord(record)
+                    repository.deletePulseRecord(it)
                     loadData()
                 }
             }
@@ -119,6 +115,15 @@ class BloodPressureFragment : Fragment() {
 
         view.findViewById<Button>(R.id.btn_add_pulse).setOnClickListener {
             showAddPulseDialog()
+        }
+
+        // ДОБАВЬТЕ ОБРАБОТЧИК ДЛЯ КНОПКИ ГРАФИКА
+        view.findViewById<Button>(R.id.btn_show_chart).setOnClickListener {
+            val chartFragment = PressureChartFragment()
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, chartFragment)
+                .addToBackStack(null)
+                .commit()
         }
     }
 
@@ -158,11 +163,6 @@ class BloodPressureFragment : Fragment() {
         val maxSystolic = records.maxByOrNull { it.systolic }?.systolic ?: 0
         val maxDiastolic = records.maxByOrNull { it.diastolic }?.diastolic ?: 0
         textMaxPressure.text = "$maxSystolic/$maxDiastolic"
-
-        val avgSystolicInt = avgSystolic.toInt()
-        val pressureStatus = getPressureStatus(avgSystolicInt, avgDiastolic.toInt())
-        val statusColor = getPressureStatusColor(avgSystolicInt, avgDiastolic.toInt())
-
     }
 
     private fun updatePulseStatistics(records: List<PulseRecord>) {
@@ -186,32 +186,17 @@ class BloodPressureFragment : Fragment() {
         textMaxPulse.text = maxPulse.toString()
     }
 
-    private fun getPressureStatus(systolic: Int, diastolic: Int): String {
-        return when {
-            systolic < 90 && diastolic < 60 -> "Пониженное"
-            systolic in 90..119 && diastolic in 60..79 -> "Нормальное"
-            systolic in 120..129 && diastolic < 80 -> "Повышенное"
-            systolic in 130..139 || diastolic in 80..89 -> "Гипертензия 1 ст."
-            systolic in 140..179 || diastolic in 90..119 -> "Гипертензия 2 ст."
-            systolic >= 180 || diastolic >= 120 -> "Гипертонический криз"
+    private fun showPressureDetails(record: PressureRecord) {
+        val status = when {
+            record.systolic < 90 && record.diastolic < 60 -> "Пониженное"
+            record.systolic in 90..129 && record.diastolic in 60..79 -> "Нормальное"
+            record.systolic in 130..149 && record.diastolic < 80 -> "Повышенное"
+            record.systolic in 150..169 || record.diastolic in 80..89 -> "Гипертензия 1 степени"
+            record.systolic in 170..189 || record.diastolic in 90..119 -> "Гипертензия 2 степени"
+            record.systolic >= 190 || record.diastolic >= 120 -> "Гипертонический криз"
             else -> "Не определено"
         }
-    }
 
-    private fun getPressureStatusColor(systolic: Int, diastolic: Int): Int {
-        return when {
-            systolic < 90 && diastolic < 60 -> android.graphics.Color.parseColor("#4CAF50")
-            systolic in 90..119 && diastolic in 60..79 -> android.graphics.Color.parseColor("#8BC34A")
-            systolic in 120..129 && diastolic < 80 -> android.graphics.Color.parseColor("#FFC107")
-            systolic in 130..139 || diastolic in 80..89 -> android.graphics.Color.parseColor("#FF9800")
-            systolic in 140..179 || diastolic in 90..119 -> android.graphics.Color.parseColor("#F44336")
-            systolic >= 180 || diastolic >= 120 -> android.graphics.Color.parseColor("#D32F2F")
-            else -> android.graphics.Color.parseColor("#9E9E9E")
-        }
-    }
-
-    private fun showPressureDetails(record: PressureRecord) {
-        val status = getPressureStatus(record.systolic, record.diastolic)
         AlertDialog.Builder(requireContext())
             .setTitle("Детали измерения")
             .setMessage("""
@@ -221,6 +206,7 @@ class BloodPressureFragment : Fragment() {
                 Давление: ${record.systolic}/${record.diastolic} мм рт.ст.
                 Статус: $status
                 
+                ━━━━━━━━━━━━━━━━━━━━━
                 Норма: 120/80 мм рт.ст.
             """.trimIndent())
             .setPositiveButton("Закрыть", null)
@@ -247,6 +233,7 @@ class BloodPressureFragment : Fragment() {
                 Пульс: ${record.pulse} уд/мин
                 Статус: $status
                 
+                ━━━━━━━━━━━━━━━━━━━━━
                 Норма: 60-80 уд/мин
             """.trimIndent())
             .setPositiveButton("Закрыть", null)
@@ -266,15 +253,16 @@ class BloodPressureFragment : Fragment() {
                 val diastolic = editDiastolic.text.toString().toIntOrNull()
 
                 if (systolic != null && diastolic != null && systolic in 30..250 && diastolic in 20..200) {
-                    val record = PressureRecord(
-                        date = LocalDate.now(),
-                        time = LocalTime.now(),
-                        systolic = systolic,
-                        diastolic = diastolic
-                    )
                     lifecycleScope.launch {
+                        val record = PressureRecord(
+                            date = LocalDate.now(),
+                            time = LocalTime.now(),
+                            systolic = systolic,
+                            diastolic = diastolic
+                        )
                         repository.addPressureRecord(record)
                         loadData()
+                        Toast.makeText(requireContext(), "Давление добавлено", Toast.LENGTH_SHORT).show()
                     }
                 } else {
                     Toast.makeText(requireContext(), "Введите корректные значения (30-250/20-200)", Toast.LENGTH_SHORT).show()
@@ -295,14 +283,15 @@ class BloodPressureFragment : Fragment() {
                 val pulse = editPulse.text.toString().toIntOrNull()
 
                 if (pulse != null && pulse in 30..200) {
-                    val record = PulseRecord(
-                        date = LocalDate.now(),
-                        time = LocalTime.now(),
-                        pulse = pulse
-                    )
                     lifecycleScope.launch {
+                        val record = PulseRecord(
+                            date = LocalDate.now(),
+                            time = LocalTime.now(),
+                            pulse = pulse
+                        )
                         repository.addPulseRecord(record)
                         loadData()
+                        Toast.makeText(requireContext(), "Пульс добавлен", Toast.LENGTH_SHORT).show()
                     }
                 } else {
                     Toast.makeText(requireContext(), "Введите корректный пульс (30-200)", Toast.LENGTH_SHORT).show()
