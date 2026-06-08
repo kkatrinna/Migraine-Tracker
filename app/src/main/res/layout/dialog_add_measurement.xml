@@ -95,8 +95,11 @@
                             android:layout_height="wrap_content"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                             android:hint="Систолическое (верхнее)"
-                            app:startIconDrawable="@drawable/ic_heart_up"
                             app:endIconMode="clear_text"
+                            app:boxCornerRadiusBottomEnd="16dp"
+                            app:boxCornerRadiusBottomStart="16dp"
+                            app:boxCornerRadiusTopEnd="16dp"
+                            app:boxCornerRadiusTopStart="16dp"
                             android:layout_marginBottom="12dp">
 
                             <com.google.android.material.textfield.TextInputEditText
@@ -115,8 +118,11 @@
                             android:layout_height="wrap_content"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                             android:hint="Диастолическое (нижнее)"
-                            app:startIconDrawable="@drawable/ic_heart_down"
-                            app:endIconMode="clear_text">
+                            app:endIconMode="clear_text"
+                            app:boxCornerRadiusBottomEnd="16dp"
+                            app:boxCornerRadiusBottomStart="16dp"
+                            app:boxCornerRadiusTopEnd="16dp"
+                            app:boxCornerRadiusTopStart="16dp">
 
                             <com.google.android.material.textfield.TextInputEditText
                                 android:id="@+id/edit_measurement_diastolic"
@@ -213,8 +219,11 @@
                         android:layout_height="wrap_content"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                         android:hint="Пульс"
-                        app:startIconDrawable="@drawable/ic_pulse"
-                        app:endIconMode="clear_text">
+                        app:endIconMode="clear_text"
+                        app:boxCornerRadiusBottomEnd="16dp"
+                        app:boxCornerRadiusBottomStart="16dp"
+                        app:boxCornerRadiusTopEnd="16dp"
+                        app:boxCornerRadiusTopStart="16dp">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/edit_measurement_pulse"
@@ -301,7 +310,10 @@
                         android:layout_height="wrap_content"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                         android:hint="Дополнительная информация"
-                        app:startIconDrawable="@drawable/ic_note">
+                        app:boxCornerRadiusBottomEnd="16dp"
+                        app:boxCornerRadiusBottomStart="16dp"
+                        app:boxCornerRadiusTopEnd="16dp"
+                        app:boxCornerRadiusTopStart="16dp">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/edit_measurement_notes"

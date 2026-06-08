@@ -46,7 +46,11 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                        app:endIconMode="clear_text">
+                        app:endIconMode="clear_text"
+                        app:boxCornerRadiusBottomEnd="12dp"
+                        app:boxCornerRadiusBottomStart="12dp"
+                        app:boxCornerRadiusTopEnd="12dp"
+                        app:boxCornerRadiusTopStart="12dp">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/edit_time"
@@ -107,7 +111,11 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                        app:endIconMode="clear_text">
+                        app:endIconMode="clear_text"
+                        app:boxCornerRadiusBottomEnd="12dp"
+                        app:boxCornerRadiusBottomStart="12dp"
+                        app:boxCornerRadiusTopEnd="12dp"
+                        app:boxCornerRadiusTopStart="12dp">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/edit_end_time"
@@ -337,7 +345,11 @@
                     android:layout_height="wrap_content"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                     android:layout_marginTop="12dp"
-                    app:endIconMode="clear_text">
+                    app:endIconMode="clear_text"
+                    app:boxCornerRadiusBottomEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp"
+                    app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusTopStart="12dp">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/edit_medication"
@@ -456,7 +468,11 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:hint="Дополнительные заметки...">
+                    android:hint="Дополнительные заметки..."
+                    app:boxCornerRadiusBottomEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp"
+                    app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusTopStart="12dp">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/edit_notes"
