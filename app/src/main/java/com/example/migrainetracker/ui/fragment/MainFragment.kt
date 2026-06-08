@@ -1279,20 +1279,67 @@ class MainFragment : Fragment() {
             putExtra("repeat_interval", reminder.repeatInterval)
         }
 
-        val pendingIntent = PendingIntent.getBroadcast(requireContext(), reminder.id, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val pendingIntent = PendingIntent.getBroadcast(
+            requireContext(),
+            reminder.id,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val calendar = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, reminder.reminderTime.hour)
             set(Calendar.MINUTE, reminder.reminderTime.minute)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
-            if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
+
+            // Если время уже прошло сегодня, устанавливаем на завтра
+            if (timeInMillis <= System.currentTimeMillis()) {
+                add(Calendar.DAY_OF_YEAR, 1)
+            }
         }
 
         try {
             if (reminder.repeatInterval > 0) {
-                alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, (reminder.repeatInterval * 60 * 60 * 1000).toLong(), pendingIntent)
+                // Для Android 12+ используем setExact() и перепланируем в Receiver
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    // Используем setExact() вместо setRepeating()
+                    alarmManager.setExact(
+                        AlarmManager.RTC_WAKEUP,
+                        calendar.timeInMillis,
+                        pendingIntent
+                    )
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    // Для Android 6-11 используем setExactAndAllowWhileIdle
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        calendar.timeInMillis,
+                        pendingIntent
+                    )
+                } else {
+                    // Для старых версий используем setRepeating
+                    val intervalMillis = (reminder.repeatInterval * 60 * 60 * 1000).toLong()
+                    alarmManager.setRepeating(
+                        AlarmManager.RTC_WAKEUP,
+                        calendar.timeInMillis,
+                        intervalMillis,
+                        pendingIntent
+                    )
+                }
             } else {
-                alarmManager.setExact(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
+                // Обычное напоминание (без повтора)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        calendar.timeInMillis,
+                        pendingIntent
+                    )
+                } else {
+                    alarmManager.setExact(
+                        AlarmManager.RTC_WAKEUP,
+                        calendar.timeInMillis,
+                        pendingIntent
+                    )
+                }
             }
         } catch (e: Exception) {
             android.util.Log.e("Reminder", "Ошибка установки будильника", e)

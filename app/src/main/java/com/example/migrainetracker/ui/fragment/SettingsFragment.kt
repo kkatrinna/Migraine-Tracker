@@ -3,7 +3,9 @@ package com.example.migrainetracker.ui.fragment
 import android.Manifest
 import android.app.DatePickerDialog
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -16,6 +18,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.core.content.edit
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -23,6 +26,8 @@ import com.example.migrainetracker.R
 import com.example.migrainetracker.data.AppDatabase
 import com.example.migrainetracker.utils.ThemeManager
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
 import java.io.File
@@ -85,6 +90,7 @@ class SettingsFragment : Fragment() {
         setupThemeButtons()
         setupExportButton()
         setupClearDataButton()
+        checkDataAndUpdateExportButton()
     }
 
     private fun initViews() {
@@ -101,6 +107,32 @@ class SettingsFragment : Fragment() {
 
         btnSaveProfile.setOnClickListener {
             saveUserProfile()
+        }
+    }
+
+    private fun checkDataAndUpdateExportButton() {
+        lifecycleScope.launch {
+            try {
+                val db = AppDatabase.getInstance(requireContext())
+
+                val migraineCount = db.migraineRecordDao().getAllRecords().size
+                val menstruationCount = db.menstruationDayDao().getAllMenstruationDays().size
+                val pressureCount = db.pressureRecordDao().getAllRecords().size
+                val pulseCount = db.pulseRecordDao().getAllRecords().size
+
+                val hasData = migraineCount > 0 || menstruationCount > 0 || pressureCount > 0 || pulseCount > 0
+
+                btnExportAll.isEnabled = hasData
+                btnExportAll.alpha = if (hasData) 1.0f else 0.5f
+
+                if (!hasData) {
+                    btnExportAll.text = "Экспорт данных (нет данных)"
+                } else {
+                    btnExportAll.text = "Экспорт всех данных"
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -126,9 +158,7 @@ class SettingsFragment : Fragment() {
                 day = parts[0].toInt()
                 month = parts[1].toInt() - 1
                 year = parts[2].toInt()
-            } catch (e: Exception) {
-                // Игнорируем
-            }
+            } catch (e: Exception) { }
         }
 
         val datePickerDialog = DatePickerDialog(
@@ -203,9 +233,7 @@ class SettingsFragment : Fragment() {
             val birthDate = LocalDate.parse(birthDateStr, formatter)
             val today = LocalDate.now()
             today.year - birthDate.year
-        } catch (e: Exception) {
-            null
-        }
+        } catch (e: Exception) { null }
     }
 
     fun getUserGender(): String? {
@@ -231,13 +259,10 @@ class SettingsFragment : Fragment() {
     private fun setupThemeButtons() {
         val currentTheme = ThemeManager.getCurrentTheme(requireContext())
 
-        // Устанавливаем активную кнопку
         when (currentTheme) {
             ThemeManager.THEME_LIGHT -> btnThemeLight.isChecked = true
             ThemeManager.THEME_DARK -> btnThemeDark.isChecked = true
-            else -> {
-                // Для системной темы - ни одна не выбрана по умолчанию
-            }
+            else -> { }
         }
 
         btnThemeLight.setOnClickListener {
@@ -253,7 +278,11 @@ class SettingsFragment : Fragment() {
 
     private fun setupExportButton() {
         btnExportAll.setOnClickListener {
-            checkPermissionAndExport()
+            if (btnExportAll.isEnabled) {
+                checkPermissionAndExport()
+            } else {
+                Toast.makeText(requireContext(), "Нет данных для экспорта", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -270,6 +299,23 @@ class SettingsFragment : Fragment() {
         }
     }
 
+    private fun hasAnyData(): Boolean {
+        var hasData = false
+        lifecycleScope.launch {
+            try {
+                val db = AppDatabase.getInstance(requireContext())
+                val migraineCount = db.migraineRecordDao().getAllRecords().size
+                val menstruationCount = db.menstruationDayDao().getAllMenstruationDays().size
+                val pressureCount = db.pressureRecordDao().getAllRecords().size
+                val pulseCount = db.pulseRecordDao().getAllRecords().size
+                hasData = migraineCount > 0 || menstruationCount > 0 || pressureCount > 0 || pulseCount > 0
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        return hasData
+    }
+
     private fun exportAllData() {
         lifecycleScope.launch {
             try {
@@ -280,28 +326,56 @@ class SettingsFragment : Fragment() {
                 val pressureRecords = db.pressureRecordDao().getAllRecords()
                 val pulseRecords = db.pulseRecordDao().getAllRecords()
 
+                // Проверяем, есть ли хоть какие-то данные
+                val hasAnyRecords = migraineRecords.isNotEmpty() ||
+                        menstruationDays.isNotEmpty() ||
+                        pressureRecords.isNotEmpty() ||
+                        pulseRecords.isNotEmpty()
+
+                if (!hasAnyRecords) {
+                    Toast.makeText(requireContext(), "Нет данных для экспорта", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+
                 val exportDir = getExportDirectory()
                 if (!exportDir.exists()) {
                     exportDir.mkdirs()
                 }
 
                 val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                var exportedFilesCount = 0
 
                 exportUserProfile(exportDir, timestamp)
+                exportedFilesCount++
 
                 if (migraineRecords.isNotEmpty() || menstruationDays.isNotEmpty()) {
                     exportMigraineCalendar(migraineRecords, menstruationDays, exportDir, timestamp)
+                    exportedFilesCount++
                 }
 
                 if (pressureRecords.isNotEmpty()) {
                     exportPressureData(pressureRecords, exportDir, timestamp)
+                    exportedFilesCount++
                 }
 
                 if (pulseRecords.isNotEmpty()) {
                     exportPulseData(pulseRecords, exportDir, timestamp)
+                    exportedFilesCount++
                 }
 
-                Toast.makeText(requireContext(), "Данные экспортированы в папку Downloads/MigraineTracker", Toast.LENGTH_LONG).show()
+                val message = "Экспортировано файлов: $exportedFilesCount\nПапка: ${exportDir.absolutePath}"
+
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("✅ Экспорт завершен")
+                    .setMessage(message)
+                    .setPositiveButton("📂 Показать файлы") { _, _ ->
+                        openDownloadsFolder(exportDir)
+                    }
+                    .setNegativeButton("Закрыть", null)
+                    .setNeutralButton("📤 Поделиться последними") { _, _ ->
+                        shareLatestFiles(exportDir)
+                    }
+                    .show()
 
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "Ошибка экспорта: ${e.message}", Toast.LENGTH_LONG).show()
@@ -310,13 +384,130 @@ class SettingsFragment : Fragment() {
         }
     }
 
+    private fun openDownloadsFolder(directory: File) {
+        try {
+            if (!directory.exists()) {
+                Toast.makeText(requireContext(), "Папка не найдена", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            val allFiles = directory.listFiles()
+            if (allFiles == null || allFiles.isEmpty()) {
+                Toast.makeText(requireContext(), "Нет файлов для просмотра", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            val sortedFiles = allFiles.filter { it.extension == "csv" || it.extension == "txt" }
+                .sortedByDescending { it.lastModified() }
+
+            if (sortedFiles.isEmpty()) {
+                Toast.makeText(requireContext(), "Нет файлов для просмотра", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            val latestFiles = if (sortedFiles.size > 5) sortedFiles.take(5) else sortedFiles
+
+            val fileItems = latestFiles.map { file ->
+                val sizeKB = file.length() / 1024
+                val date = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(Date(file.lastModified()))
+                "${file.name} (${sizeKB} KB, $date)"
+            }.toTypedArray()
+
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("📁 Последние экспортированные файлы")
+                .setItems(fileItems) { _, which ->
+                    openCsvFile(latestFiles[which])
+                }
+                .setPositiveButton("📤 Поделиться последними") { _, _ ->
+                    shareLatestFiles(directory)
+                }
+                .setNegativeButton("Закрыть", null)
+                .show()
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(requireContext(), "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun shareLatestFiles(directory: File) {
+        try {
+            val allFiles = directory.listFiles()
+            if (allFiles == null || allFiles.isEmpty()) {
+                Toast.makeText(requireContext(), "Нет файлов для отправки", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            val latestFiles = allFiles
+                .filter { it.extension == "csv" || it.extension == "txt" }
+                .sortedByDescending { it.lastModified() }
+                .take(5)
+
+            if (latestFiles.isEmpty()) {
+                Toast.makeText(requireContext(), "Нет файлов для отправки", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            val uris = latestFiles.map { file ->
+                FileProvider.getUriForFile(
+                    requireContext(),
+                    "${requireContext().packageName}.fileprovider",
+                    file
+                )
+            }
+
+            val shareIntent = Intent().apply {
+                action = if (uris.size == 1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE
+                type = "*/*"
+                if (uris.size == 1) {
+                    putExtra(Intent.EXTRA_STREAM, uris.first())
+                } else {
+                    putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
+                }
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+
+            startActivity(Intent.createChooser(shareIntent, "Поделиться последними файлами"))
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(requireContext(), "Ошибка при отправке файлов", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun openCsvFile(file: File) {
+        try {
+            val uri = FileProvider.getUriForFile(
+                requireContext(),
+                "${requireContext().packageName}.fileprovider",
+                file
+            )
+
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "text/csv")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+
+            startActivity(Intent.createChooser(intent, "Открыть CSV файл"))
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(requireContext(), "Не удалось открыть файл. Установите приложение для работы с CSV (Excel, Google Sheets)", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun getExportDirectory(): File {
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        return File(downloadsDir, "MigraineTracker")
+    }
+
     private fun exportUserProfile(exportDir: File, timestamp: String) {
         val file = File(exportDir, "user_profile_$timestamp.txt")
         FileWriter(file).use { writer ->
             writer.append("ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ\n")
             writer.append("=".repeat(40) + "\n")
             writer.append("Создан: ${SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault()).format(Date())}\n\n")
-
             writer.append("Имя: ${getUserName()}\n")
             writer.append("Дата рождения: ${getUserBirthDate() ?: "—"}\n")
             writer.append("Возраст: ${getUserAge() ?: "—"} лет\n")
@@ -340,11 +531,6 @@ class SettingsFragment : Fragment() {
         }
     }
 
-    private fun getExportDirectory(): File {
-        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        return File(downloadsDir, "MigraineTracker")
-    }
-
     private fun exportMigraineCalendar(
         records: List<com.example.migrainetracker.data.entity.MigraineRecord>,
         menstruationDays: List<com.example.migrainetracker.data.entity.MenstruationDay>,
@@ -353,9 +539,14 @@ class SettingsFragment : Fragment() {
     ) {
         val file = File(exportDir, "migraine_calendar_$timestamp.csv")
         FileWriter(file).use { writer ->
-            // ... код экспорта мигрени
             writer.append("Календарь мигрени\n")
             writer.append("Создан: ${SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault()).format(Date())}\n")
+            writer.append("Дата,Время,Интенсивность,Лекарство,Тошнота,Светобоязнь,Аура,Заметки\n")
+            for (record in records.sortedBy { it.date }) {
+                writer.append("${record.date},${record.time},${record.intensity},${record.medicationName ?: ""},")
+                writer.append("${if (record.nausea) "Да" else "Нет"},${if (record.photophobia) "Да" else "Нет"},")
+                writer.append("${if (record.aura) "Да" else "Нет"},${record.notes ?: ""}\n")
+            }
         }
     }
 
@@ -366,9 +557,10 @@ class SettingsFragment : Fragment() {
     ) {
         val file = File(exportDir, "pressure_export_$timestamp.csv")
         FileWriter(file).use { writer ->
-            writer.append("Давление,Время,Систолическое,Диастолическое\n")
+            writer.append("Дата,Время,Систолическое,Диастолическое,Пульс,Статус\n")
             for (record in records) {
-                writer.append("${record.date},${record.time},${record.systolic},${record.diastolic}\n")
+                val status = getPressureStatus(record.systolic, record.diastolic)
+                writer.append("${record.date},${record.time},${record.systolic},${record.diastolic},${record.pulse},$status\n")
             }
         }
     }
@@ -380,10 +572,34 @@ class SettingsFragment : Fragment() {
     ) {
         val file = File(exportDir, "pulse_export_$timestamp.csv")
         FileWriter(file).use { writer ->
-            writer.append("Дата,Время,Пульс\n")
+            writer.append("Дата,Время,Пульс,Статус\n")
             for (record in records) {
-                writer.append("${record.date},${record.time},${record.pulse}\n")
+                val status = getPulseStatus(record.pulse)
+                writer.append("${record.date},${record.time},${record.pulse},$status\n")
             }
+        }
+    }
+
+    private fun getPressureStatus(systolic: Int, diastolic: Int): String {
+        return when {
+            systolic < 90 && diastolic < 60 -> "Пониженное"
+            systolic in 90..119 && diastolic in 60..79 -> "Нормальное"
+            systolic in 120..129 && diastolic < 80 -> "Повышенное"
+            systolic in 130..139 || diastolic in 80..89 -> "Гипертензия 1 степени"
+            systolic in 140..179 || diastolic in 90..119 -> "Гипертензия 2 степени"
+            systolic >= 180 || diastolic >= 120 -> "Гипертонический криз"
+            else -> "Не определено"
+        }
+    }
+
+    private fun getPulseStatus(pulse: Int): String {
+        return when (pulse) {
+            in 0..40 -> "Критически низкий"
+            in 41..59 -> "Пониженный"
+            in 60..90 -> "Нормальный"
+            in 91..135 -> "Тахикардия легкая"
+            in 136..185 -> "Тахикардия средняя"
+            else -> "Тахикардия тяжелая"
         }
     }
 
@@ -422,6 +638,11 @@ class SettingsFragment : Fragment() {
                 db.menstruationDayDao().deleteAll()
 
                 Toast.makeText(requireContext(), "Все данные успешно удалены", Toast.LENGTH_LONG).show()
+
+                // Обновляем состояние кнопки экспорта
+                btnExportAll.isEnabled = false
+                btnExportAll.alpha = 0.5f
+                btnExportAll.text = "Экспорт данных (нет данных)"
 
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "Ошибка при удалении данных: ${e.message}", Toast.LENGTH_LONG).show()
