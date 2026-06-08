@@ -2,6 +2,7 @@ package com.example.migrainetracker.ui.adapters
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.example.migrainetracker.data.entity.PulseRecord
 import com.example.migrainetracker.databinding.CardPulseItemBinding
@@ -32,6 +33,39 @@ class PulseCardAdapter(
 
     override fun getItemCount() = items.size
 
+    private fun getPulseStatus(pulse: Int): String {
+        return when {
+            // Критическая брадикардия (низкий пульс)
+            pulse < 50 -> "🔴 Критически низкий пульс"
+
+            // Пониженный пульс (брадикардия)
+            pulse in 50..59 -> "🟠 Пониженный пульс (брадикардия)"
+
+            // Нормальный пульс для обычных людей
+            pulse in 60..90 -> "🟢 Нормальный пульс"
+
+            // Умеренная тахикардия (1 степень)
+            pulse in 91..135 -> "🟡 Тахикардия 1 степени (умеренная)"
+
+            // Выраженная тахикардия (2 степень)
+            pulse in 136..185 -> "🔴 Тахикардия 2 степени (выраженная)"
+
+            // Критическая тахикардия
+            else -> "🔴 Критическая тахикардия"
+        }
+    }
+
+    private fun getPulseStatusColor(pulse: Int, context: android.content.Context): Int {
+        return when {
+            pulse < 50 -> ContextCompat.getColor(context, android.R.color.holo_red_dark)
+            pulse in 50..59 -> ContextCompat.getColor(context, android.R.color.holo_orange_dark)
+            pulse in 60..90 -> ContextCompat.getColor(context, android.R.color.holo_green_light)
+            pulse in 91..135 -> ContextCompat.getColor(context, android.R.color.holo_orange_light)
+            pulse in 136..185 -> ContextCompat.getColor(context, android.R.color.holo_red_light)
+            else -> ContextCompat.getColor(context, android.R.color.holo_red_dark)
+        }
+    }
+
     inner class PulseViewHolder(
         private val binding: CardPulseItemBinding
     ) : RecyclerView.ViewHolder(binding.root) {
@@ -43,8 +77,10 @@ class PulseCardAdapter(
             binding.textDate.text = record.date.format(dateFormatter)
             binding.textTime.text = record.time.format(timeFormatter)
             binding.textPulse.text = record.pulse.toString()
-            binding.textStatus.text = getPulseStatus(record.pulse)
-            binding.textStatus.setTextColor(getPulseStatusColor(record.pulse))
+
+            val status = getPulseStatus(record.pulse)
+            binding.textStatus.text = status
+            binding.textStatus.setTextColor(getPulseStatusColor(record.pulse, binding.root.context))
 
             binding.root.setOnClickListener {
                 onItemClick(record)
@@ -52,31 +88,6 @@ class PulseCardAdapter(
 
             binding.buttonDelete.setOnClickListener {
                 onItemDelete(record)
-            }
-        }
-
-        private fun getPulseStatus(pulse: Int): String {
-            return when (pulse) {
-                in 0..40 -> "Очень низкий пульс"
-                in 41..59 -> "Низкий пульс"
-                in 60..79 -> "Нормальный пульс"
-                in 80..99 -> "Учащенный пульс"
-                in 100..119 -> "Тахикардия легкая"
-                in 120..139 -> "Тахикардия средняя"
-                else -> "Тахикардия тяжелая"
-            }
-        }
-
-        private fun getPulseStatusColor(pulse: Int): Int {
-            val context = binding.root.context
-            return when (pulse) {
-                in 0..40 -> context.getColor(android.R.color.holo_red_dark)
-                in 41..59 -> context.getColor(android.R.color.holo_orange_dark)
-                in 60..79 -> context.getColor(android.R.color.holo_green_light)
-                in 80..99 -> context.getColor(android.R.color.holo_orange_light)
-                in 100..119 -> context.getColor(android.R.color.holo_orange_dark)
-                in 120..139 -> context.getColor(android.R.color.holo_red_light)
-                else -> context.getColor(android.R.color.holo_red_dark)
             }
         }
     }

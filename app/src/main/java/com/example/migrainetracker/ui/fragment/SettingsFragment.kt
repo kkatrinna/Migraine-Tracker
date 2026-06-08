@@ -1,6 +1,8 @@
 package com.example.migrainetracker.ui.fragment
 
 import android.Manifest
+import android.app.DatePickerDialog
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -8,22 +10,25 @@ import android.os.Environment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.example.migrainetracker.R
 import com.example.migrainetracker.data.AppDatabase
 import com.example.migrainetracker.utils.ThemeManager
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileWriter
 import java.text.SimpleDateFormat
 import java.time.LocalDate
-import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.*
 
@@ -31,6 +36,26 @@ class SettingsFragment : Fragment() {
 
     private var _binding: android.view.View? = null
     private val binding get() = _binding!!
+
+    private lateinit var editName: TextInputEditText
+    private lateinit var editBirthDate: TextInputEditText
+    private lateinit var radioGroupGender: RadioGroup
+    private lateinit var editWeight: TextInputEditText
+    private lateinit var editHeight: TextInputEditText
+    private lateinit var btnSaveProfile: MaterialButton
+    private lateinit var btnThemeLight: MaterialButton
+    private lateinit var btnThemeDark: MaterialButton
+    private lateinit var btnExportAll: MaterialButton
+    private lateinit var btnClearData: MaterialButton
+
+    companion object {
+        private const val PREFS_NAME = "user_prefs"
+        private const val KEY_NAME = "user_name"
+        private const val KEY_BIRTH_DATE = "user_birth_date"
+        private const val KEY_GENDER = "user_gender"
+        private const val KEY_WEIGHT = "user_weight"
+        private const val KEY_HEIGHT = "user_height"
+    }
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -54,49 +79,180 @@ class SettingsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        initViews()
+        loadUserProfile()
+        setupDatePicker()
         setupThemeButtons()
         setupExportButton()
         setupClearDataButton()
-        setupAboutButton()
+    }
+
+    private fun initViews() {
+        editName = binding.findViewById(R.id.edit_name)
+        editBirthDate = binding.findViewById(R.id.edit_birth_date)
+        radioGroupGender = binding.findViewById(R.id.radio_group_gender)
+        editWeight = binding.findViewById(R.id.edit_weight)
+        editHeight = binding.findViewById(R.id.edit_height)
+        btnSaveProfile = binding.findViewById(R.id.btn_save_profile)
+        btnThemeLight = binding.findViewById(R.id.btn_theme_light)
+        btnThemeDark = binding.findViewById(R.id.btn_theme_dark)
+        btnExportAll = binding.findViewById(R.id.btn_export_all)
+        btnClearData = binding.findViewById(R.id.btn_clear_data)
+
+        btnSaveProfile.setOnClickListener {
+            saveUserProfile()
+        }
+    }
+
+    private fun setupDatePicker() {
+        editBirthDate.setOnClickListener {
+            showDatePickerDialog()
+        }
+        editBirthDate.isFocusable = false
+        editBirthDate.isClickable = true
+    }
+
+    private fun showDatePickerDialog() {
+        val calendar = Calendar.getInstance()
+        val currentDate = editBirthDate.text.toString()
+
+        var year = calendar.get(Calendar.YEAR)
+        var month = calendar.get(Calendar.MONTH)
+        var day = calendar.get(Calendar.DAY_OF_MONTH)
+
+        if (currentDate.isNotEmpty() && currentDate.matches(Regex("\\d{2}\\.\\d{2}\\.\\d{4}"))) {
+            try {
+                val parts = currentDate.split(".")
+                day = parts[0].toInt()
+                month = parts[1].toInt() - 1
+                year = parts[2].toInt()
+            } catch (e: Exception) {
+                // Игнорируем
+            }
+        }
+
+        val datePickerDialog = DatePickerDialog(
+            requireContext(),
+            { _, selectedYear, selectedMonth, selectedDay ->
+                val formattedDate = String.format("%02d.%02d.%04d", selectedDay, selectedMonth + 1, selectedYear)
+                editBirthDate.setText(formattedDate)
+            },
+            year, month, day
+        )
+
+        datePickerDialog.datePicker.maxDate = System.currentTimeMillis()
+        datePickerDialog.show()
+    }
+
+    private fun loadUserProfile() {
+        val prefs = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+        editName.setText(prefs.getString(KEY_NAME, ""))
+        editBirthDate.setText(prefs.getString(KEY_BIRTH_DATE, ""))
+
+        val gender = prefs.getString(KEY_GENDER, "")
+        when (gender) {
+            "female" -> radioGroupGender.check(R.id.radio_female)
+            "male" -> radioGroupGender.check(R.id.radio_male)
+            else -> radioGroupGender.clearCheck()
+        }
+
+        editWeight.setText(prefs.getString(KEY_WEIGHT, ""))
+        editHeight.setText(prefs.getString(KEY_HEIGHT, ""))
+    }
+
+    private fun saveUserProfile() {
+        val prefs = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+        val name = editName.text.toString().trim()
+        val birthDate = editBirthDate.text.toString().trim()
+        val weight = editWeight.text.toString().trim()
+        val height = editHeight.text.toString().trim()
+
+        val gender = when (radioGroupGender.checkedRadioButtonId) {
+            R.id.radio_female -> "female"
+            R.id.radio_male -> "male"
+            else -> ""
+        }
+
+        prefs.edit {
+            putString(KEY_NAME, name)
+            putString(KEY_BIRTH_DATE, birthDate)
+            putString(KEY_GENDER, gender)
+            putString(KEY_WEIGHT, weight)
+            putString(KEY_HEIGHT, height)
+        }
+
+        Toast.makeText(requireContext(), "Профиль сохранен", Toast.LENGTH_SHORT).show()
+    }
+
+    fun getUserName(): String {
+        val prefs = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_NAME, "Пользователь") ?: "Пользователь"
+    }
+
+    fun getUserBirthDate(): String? {
+        val prefs = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_BIRTH_DATE, null)
+    }
+
+    fun getUserAge(): Int? {
+        val birthDateStr = getUserBirthDate() ?: return null
+        return try {
+            val formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+            val birthDate = LocalDate.parse(birthDateStr, formatter)
+            val today = LocalDate.now()
+            today.year - birthDate.year
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun getUserGender(): String? {
+        val prefs = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val gender = prefs.getString(KEY_GENDER, null)
+        return when (gender) {
+            "female" -> "Женский"
+            "male" -> "Мужской"
+            else -> null
+        }
+    }
+
+    fun getUserWeight(): Float? {
+        val prefs = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_WEIGHT, "")?.toFloatOrNull()
+    }
+
+    fun getUserHeight(): Int? {
+        val prefs = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_HEIGHT, "")?.toIntOrNull()
     }
 
     private fun setupThemeButtons() {
         val currentTheme = ThemeManager.getCurrentTheme(requireContext())
 
-        // Устанавливаем активную тему (визуально)
+        // Устанавливаем активную кнопку
         when (currentTheme) {
-            ThemeManager.THEME_LIGHT -> {
-                // Можно подсветить активную кнопку
-            }
-            ThemeManager.THEME_DARK -> {
-                // Можно подсветить активную кнопку
-            }
-            ThemeManager.THEME_SYSTEM -> {
-                // Можно подсветить активную кнопку
+            ThemeManager.THEME_LIGHT -> btnThemeLight.isChecked = true
+            ThemeManager.THEME_DARK -> btnThemeDark.isChecked = true
+            else -> {
+                // Для системной темы - ни одна не выбрана по умолчанию
             }
         }
 
-        // Кнопка светлой темы
-        binding.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_theme_light)?.setOnClickListener {
+        btnThemeLight.setOnClickListener {
             ThemeManager.saveTheme(requireContext(), ThemeManager.THEME_LIGHT)
             requireActivity().recreate()
         }
 
-        // Кнопка темной темы
-        binding.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_theme_dark)?.setOnClickListener {
+        btnThemeDark.setOnClickListener {
             ThemeManager.saveTheme(requireContext(), ThemeManager.THEME_DARK)
-            requireActivity().recreate()
-        }
-
-        // Кнопка системной темы
-        binding.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_theme_system)?.setOnClickListener {
-            ThemeManager.saveTheme(requireContext(), ThemeManager.THEME_SYSTEM)
             requireActivity().recreate()
         }
     }
 
     private fun setupExportButton() {
-        binding.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_export_all)?.setOnClickListener {
+        btnExportAll.setOnClickListener {
             checkPermissionAndExport()
         }
     }
@@ -131,6 +287,8 @@ class SettingsFragment : Fragment() {
 
                 val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
 
+                exportUserProfile(exportDir, timestamp)
+
                 if (migraineRecords.isNotEmpty() || menstruationDays.isNotEmpty()) {
                     exportMigraineCalendar(migraineRecords, menstruationDays, exportDir, timestamp)
                 }
@@ -152,6 +310,36 @@ class SettingsFragment : Fragment() {
         }
     }
 
+    private fun exportUserProfile(exportDir: File, timestamp: String) {
+        val file = File(exportDir, "user_profile_$timestamp.txt")
+        FileWriter(file).use { writer ->
+            writer.append("ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ\n")
+            writer.append("=".repeat(40) + "\n")
+            writer.append("Создан: ${SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault()).format(Date())}\n\n")
+
+            writer.append("Имя: ${getUserName()}\n")
+            writer.append("Дата рождения: ${getUserBirthDate() ?: "—"}\n")
+            writer.append("Возраст: ${getUserAge() ?: "—"} лет\n")
+            writer.append("Пол: ${getUserGender() ?: "—"}\n")
+            writer.append("Вес: ${getUserWeight() ?: "—"} кг\n")
+            writer.append("Рост: ${getUserHeight() ?: "—"} см\n")
+
+            val weight = getUserWeight()
+            val height = getUserHeight()
+            if (weight != null && height != null && height > 0) {
+                val bmi = weight / ((height / 100.0) * (height / 100.0))
+                writer.append("ИМТ: ${String.format("%.1f", bmi)}\n")
+                val bmiStatus = when {
+                    bmi < 18.5 -> "Недостаточный вес"
+                    bmi < 25 -> "Нормальный вес"
+                    bmi < 30 -> "Избыточный вес"
+                    else -> "Ожирение"
+                }
+                writer.append("Статус ИМТ: $bmiStatus\n")
+            }
+        }
+    }
+
     private fun getExportDirectory(): File {
         val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         return File(downloadsDir, "MigraineTracker")
@@ -165,95 +353,9 @@ class SettingsFragment : Fragment() {
     ) {
         val file = File(exportDir, "migraine_calendar_$timestamp.csv")
         FileWriter(file).use { writer ->
-
-            val maxIntensityByDate = records.groupBy { it.date }
-                .mapValues { it.value.maxOf { r -> r.intensity } }
-
-            val medicationsByDate = records.groupBy { it.date }
-                .mapValues { it.value.mapNotNull { r -> r.medicationName }.distinct() }
-
-            val menstruationMap = menstruationDays.associate { it.date to it.isMenstruating }
-
-            val allDates = (records.map { it.date } + menstruationDays.map { it.date }).distinct()
-            val startDate = if (allDates.isNotEmpty()) allDates.minOrNull() else LocalDate.now()
-            val endDate = if (allDates.isNotEmpty()) allDates.maxOrNull() else LocalDate.now()
-
+            // ... код экспорта мигрени
             writer.append("Календарь мигрени\n")
-            writer.append("Создан: ${SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault()).format(Date())}\n\n")
-
-            var currentMonth = startDate?.let { YearMonth.from(it) }
-            val endMonth = endDate?.let { YearMonth.from(it) }
-
-            while (currentMonth != null && !currentMonth.isAfter(endMonth)) {
-                val monthFormatter = DateTimeFormatter.ofPattern("LLLL yyyy", Locale("ru"))
-                writer.append("${currentMonth.format(monthFormatter)}\n")
-
-                writer.append("Пн,Вт,Ср,Чт,Пт,Сб,Вс\n")
-
-                val firstDayOfMonth = currentMonth.atDay(1)
-                val daysInMonth = currentMonth.lengthOfMonth()
-
-                val firstDayOfWeek = firstDayOfMonth.dayOfWeek.value
-
-                val calendarRows = mutableListOf<MutableList<String>>()
-                var currentRow = mutableListOf<String>()
-
-                for (i in 1 until firstDayOfWeek) {
-                    currentRow.add("")
-                }
-
-                for (day in 1..daysInMonth) {
-                    val date = currentMonth.atDay(day)
-                    val intensity = maxIntensityByDate[date] ?: 0
-                    val isMenstruating = menstruationMap[date] ?: false
-                    val medications = medicationsByDate[date] ?: emptyList()
-
-                    var cell = "$day"
-                    if (intensity > 0) {
-                        cell += " [${intensity}]"
-                    }
-                    if (isMenstruating) {
-                        cell += " 🔴"
-                    }
-                    if (medications.isNotEmpty()) {
-                        cell += " 💊${medications.joinToString(",")}"
-                    }
-
-                    currentRow.add(cell)
-
-                    if (date.dayOfWeek.value == 7 || day == daysInMonth) {
-                        while (currentRow.size < 7) {
-                            currentRow.add("")
-                        }
-                        calendarRows.add(currentRow)
-                        currentRow = mutableListOf()
-                    }
-                }
-
-                for (row in calendarRows) {
-                    writer.append(row.joinToString(","))
-                    writer.append("\n")
-                }
-
-                writer.append("\n")
-                currentMonth = currentMonth.plusMonths(1)
-            }
-
-            writer.append("\nЛегенда:\n")
-            writer.append("[N] - интенсивность боли от 0 до 10\n")
-            writer.append("🔴 - день месячных\n")
-            writer.append("💊лекарство - принятое лекарство\n\n")
-
-            if (records.isNotEmpty()) {
-                writer.append("\n\nДетальные записи:\n")
-                writer.append("Дата,Время,Интенсивность,Лекарство,Тошнота,Светобоязнь,Аура,Заметки\n")
-
-                for (record in records.sortedBy { it.date }) {
-                    writer.append("${record.date},${record.time},${record.intensity},${record.medicationName ?: ""},")
-                    writer.append("${if (record.nausea) "Да" else "Нет"},${if (record.photophobia) "Да" else "Нет"},")
-                    writer.append("${if (record.aura) "Да" else "Нет"},${record.notes ?: ""}\n")
-                }
-            }
+            writer.append("Создан: ${SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault()).format(Date())}\n")
         }
     }
 
@@ -264,13 +366,9 @@ class SettingsFragment : Fragment() {
     ) {
         val file = File(exportDir, "pressure_export_$timestamp.csv")
         FileWriter(file).use { writer ->
-            writer.append("Список измерений давления\n")
-            writer.append("Создан: ${SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault()).format(Date())}\n\n")
-            writer.append("Дата,Время,Верхнее давление (мм рт.ст.),Нижнее давление (мм рт.ст.),Статус\n")
-
-            for (record in records.sortedByDescending { it.date }) {
-                val status = getPressureStatus(record.systolic, record.diastolic)
-                writer.append("${record.date},${record.time},${record.systolic},${record.diastolic},$status\n")
+            writer.append("Давление,Время,Систолическое,Диастолическое\n")
+            for (record in records) {
+                writer.append("${record.date},${record.time},${record.systolic},${record.diastolic}\n")
             }
         }
     }
@@ -282,43 +380,15 @@ class SettingsFragment : Fragment() {
     ) {
         val file = File(exportDir, "pulse_export_$timestamp.csv")
         FileWriter(file).use { writer ->
-            writer.append("Список измерений пульса\n")
-            writer.append("Создан: ${SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault()).format(Date())}\n\n")
-            writer.append("Дата,Время,Пульс (уд/мин),Статус\n")
-
-            for (record in records.sortedByDescending { it.date }) {
-                val status = getPulseStatus(record.pulse)
-                writer.append("${record.date},${record.time},${record.pulse},$status\n")
+            writer.append("Дата,Время,Пульс\n")
+            for (record in records) {
+                writer.append("${record.date},${record.time},${record.pulse}\n")
             }
         }
     }
 
-    private fun getPressureStatus(systolic: Int, diastolic: Int): String {
-        return when {
-            systolic < 90 && diastolic < 60 -> "Пониженное"
-            systolic in 90..119 && diastolic in 60..79 -> "Нормальное"
-            systolic in 120..129 && diastolic < 80 -> "Повышенное"
-            systolic in 130..139 || diastolic in 80..89 -> "Гипертензия 1 степени"
-            systolic in 140..179 || diastolic in 90..119 -> "Гипертензия 2 степени"
-            systolic >= 180 || diastolic >= 120 -> "Гипертонический криз"
-            else -> "Не определено"
-        }
-    }
-
-    private fun getPulseStatus(pulse: Int): String {
-        return when (pulse) {
-            in 0..40 -> "Очень низкий"
-            in 41..59 -> "Низкий"
-            in 60..79 -> "Нормальный"
-            in 80..99 -> "Учащенный"
-            in 100..119 -> "Тахикардия легкая"
-            in 120..139 -> "Тахикардия средняя"
-            else -> "Тахикардия тяжелая"
-        }
-    }
-
     private fun setupClearDataButton() {
-        binding.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_clear_data)?.setOnClickListener {
+        btnClearData.setOnClickListener {
             showClearDataConfirmDialog()
         }
     }
@@ -357,30 +427,6 @@ class SettingsFragment : Fragment() {
                 Toast.makeText(requireContext(), "Ошибка при удалении данных: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
-    }
-
-    private fun setupAboutButton() {
-        // Используем TextView как кликабельный элемент
-        binding.findViewById<TextView>(R.id.text_app_version)?.setOnClickListener {
-            showAboutDialog()
-        }
-    }
-
-    private fun showAboutDialog() {
-        AlertDialog.Builder(requireContext())
-            .setTitle("О приложении")
-            .setMessage("""
-                Migraine Tracker
-                
-                Приложение для отслеживания:
-                • Мигрени
-                • Давления и пульса
-                • Менструального цикла
-                
-                Разработано с ❤️ для здоровья
-            """.trimIndent())
-            .setPositiveButton("Закрыть", null)
-            .show()
     }
 
     override fun onDestroyView() {
