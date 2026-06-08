@@ -1,6 +1,7 @@
 package com.example.migrainetracker.ui
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
@@ -20,6 +21,13 @@ class MainActivity : AppCompatActivity() {
         ThemeManager.applyTheme(savedTheme)
 
         super.onCreate(savedInstanceState)
+
+        if (!OnboardingActivity.isOnboardingCompleted(this)) {
+            startActivity(Intent(this, OnboardingActivity::class.java))
+            finish()
+            return
+        }
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
