@@ -6,7 +6,6 @@
     android:orientation="vertical"
     android:padding="16dp">
 
-    <!-- Экспорт всех записей -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/card_export_all"
         android:layout_width="match_parent"
@@ -68,7 +67,6 @@
 
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- Экспорт за последний месяц -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/card_export_last_month"
         android:layout_width="match_parent"
@@ -129,7 +127,6 @@
 
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- Экспорт за период -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/card_export_date_range"
         android:layout_width="match_parent"
@@ -190,7 +187,6 @@
 
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- Экспорт статистики -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/card_export_statistics"
         android:layout_width="match_parent"

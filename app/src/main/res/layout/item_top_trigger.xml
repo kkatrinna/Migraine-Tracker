@@ -7,7 +7,6 @@
     android:padding="12dp"
     android:gravity="center_vertical">
 
-    <!-- Иконка триггера (без круга) -->
     <ImageView
         android:id="@+id/image_trigger_icon"
         android:layout_width="28dp"

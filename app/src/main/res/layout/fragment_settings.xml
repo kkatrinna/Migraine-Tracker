@@ -45,7 +45,6 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Личная информация -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -87,7 +86,6 @@
 
                 </LinearLayout>
 
-                <!-- Имя с иконкой в конце -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -106,7 +104,6 @@
 
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- Дата рождения с иконкой в конце -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -128,7 +125,6 @@
 
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- Выбор пола -->
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -174,14 +170,12 @@
 
                 </com.google.android.material.card.MaterialCardView>
 
-                <!-- Вес и рост в одной строке -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:layout_marginBottom="20dp">
 
-                    <!-- Вес с иконкой в конце -->
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -201,7 +195,6 @@
 
                     </com.google.android.material.textfield.TextInputLayout>
 
-                    <!-- Рост с иконкой в конце -->
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -223,7 +216,6 @@
 
                 </LinearLayout>
 
-                <!-- Кнопка сохранения профиля -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_save_profile"
                     android:layout_width="match_parent"
@@ -238,7 +230,6 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Настройки приложения -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -261,7 +252,6 @@
                     android:textColor="?attr/colorPrimary"
                     android:layout_marginBottom="16dp" />
 
-                <!-- Тема -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -302,7 +292,6 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Данные -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -347,59 +336,6 @@
                     android:textColor="@color/pain_extreme"
                     app:strokeColor="@color/pain_extreme"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- О приложении -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="2dp"
-            android:layout_marginBottom="16dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:padding="24dp">
-
-                <ImageView
-                    android:layout_width="64dp"
-                    android:layout_height="64dp"
-                    android:src="@android:drawable/ic_dialog_info"
-                    android:tint="?attr/colorPrimary"
-                    android:layout_marginBottom="12dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Migraine Tracker"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="?attr/colorPrimary" />
-
-                <TextView
-                    android:id="@+id/text_app_version"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Версия 1.0"
-                    android:textSize="12sp"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:layout_marginTop="4dp"
-                    android:layout_marginBottom="8dp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Приложение для отслеживания мигрени, давления, пульса и менструального цикла"
-                    android:textSize="12sp"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:gravity="center"
-                    android:lineSpacingExtra="4dp" />
 
             </LinearLayout>
 

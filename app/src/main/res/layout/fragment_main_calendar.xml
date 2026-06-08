@@ -10,7 +10,6 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- Навигация по месяцам -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -55,7 +54,6 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Дни недели -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -137,14 +135,12 @@
 
         </LinearLayout>
 
-        <!-- Календарь -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recycler_calendar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:padding="8dp" />
 
-        <!-- Статистика -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -292,7 +288,6 @@
 
                     </com.google.android.material.card.MaterialCardView>
 
-                    <!-- Кнопка экспорта -->
                     <com.google.android.material.card.MaterialCardView
                         android:id="@+id/card_export"
                         android:layout_width="0dp"
@@ -309,7 +304,7 @@
 
                         <LinearLayout
                             android:layout_width="match_parent"
-                            android:layout_height="90dp"
+                            android:layout_height="match_parent"
                             android:orientation="vertical"
                             android:padding="16dp"
                             android:gravity="center">
@@ -337,7 +332,6 @@
 
                 </LinearLayout>
 
-                <!-- Прогресс-бар -->
                 <com.google.android.material.progressindicator.LinearProgressIndicator
                     android:id="@+id/progress_migraine_frequency"
                     android:layout_width="match_parent"
@@ -351,7 +345,6 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Частые триггеры -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -395,7 +388,6 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Кнопка напоминаний -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_reminders"
             android:layout_width="match_parent"

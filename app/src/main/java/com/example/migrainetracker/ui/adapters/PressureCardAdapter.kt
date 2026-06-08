@@ -38,17 +38,14 @@ class PressureCardAdapter(
     override fun getItemCount() = items.size
 
     private fun getPressureStatus(systolic: Int, diastolic: Int): String {
-        // Критически низкое давление
         if (systolic <= 90 && diastolic <= 60) {
             return "🔴 Критически низкое"
         }
 
-        // Пониженное давление (гипотония)
         if ((systolic <= 100 && diastolic <= 60) || (systolic < 100)) {
             return "🟠 Пониженное (гипотония)"
         }
 
-        // Определяем категорию по систолическому и диастолическому
         val systolicCategory = when {
             systolic < 120 -> 0
             systolic in 120..129 -> 1
@@ -83,12 +80,10 @@ class PressureCardAdapter(
     }
 
     private fun getPressureStatusColor(systolic: Int, diastolic: Int, context: Context): Int {
-        // Критически низкое давление
         if (systolic <= 90 && diastolic <= 60) {
             return ContextCompat.getColor(context, android.R.color.holo_red_dark)
         }
 
-        // Пониженное давление
         if ((systolic <= 100 && diastolic <= 60) || (systolic < 100)) {
             return ContextCompat.getColor(context, android.R.color.holo_orange_dark)
         }

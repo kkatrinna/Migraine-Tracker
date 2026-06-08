@@ -24,6 +24,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.example.migrainetracker.R
 import com.example.migrainetracker.data.AppDatabase
+import com.example.migrainetracker.ui.MainActivity
 import com.example.migrainetracker.utils.ThemeManager
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -194,26 +195,30 @@ class SettingsFragment : Fragment() {
     private fun saveUserProfile() {
         val prefs = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-        val name = editName.text.toString().trim()
-        val birthDate = editBirthDate.text.toString().trim()
-        val weight = editWeight.text.toString().trim()
-        val height = editHeight.text.toString().trim()
-
-        val gender = when (radioGroupGender.checkedRadioButtonId) {
+        val oldGender = prefs.getString(KEY_GENDER, "")
+        val newGender = when (radioGroupGender.checkedRadioButtonId) {
             R.id.radio_female -> "female"
             R.id.radio_male -> "male"
             else -> ""
         }
 
+        val name = editName.text.toString().trim()
+        val birthDate = editBirthDate.text.toString().trim()
+        val weight = editWeight.text.toString().trim()
+        val height = editHeight.text.toString().trim()
+
         prefs.edit {
             putString(KEY_NAME, name)
             putString(KEY_BIRTH_DATE, birthDate)
-            putString(KEY_GENDER, gender)
+            putString(KEY_GENDER, newGender)
             putString(KEY_WEIGHT, weight)
             putString(KEY_HEIGHT, height)
         }
 
-        Toast.makeText(requireContext(), "Профиль сохранен", Toast.LENGTH_SHORT).show()
+        if (oldGender != newGender) {
+           (requireActivity() as? MainActivity)?.onResume()
+
+        }
     }
 
     fun getUserName(): String {
@@ -299,23 +304,6 @@ class SettingsFragment : Fragment() {
         }
     }
 
-    private fun hasAnyData(): Boolean {
-        var hasData = false
-        lifecycleScope.launch {
-            try {
-                val db = AppDatabase.getInstance(requireContext())
-                val migraineCount = db.migraineRecordDao().getAllRecords().size
-                val menstruationCount = db.menstruationDayDao().getAllMenstruationDays().size
-                val pressureCount = db.pressureRecordDao().getAllRecords().size
-                val pulseCount = db.pulseRecordDao().getAllRecords().size
-                hasData = migraineCount > 0 || menstruationCount > 0 || pressureCount > 0 || pulseCount > 0
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-        return hasData
-    }
-
     private fun exportAllData() {
         lifecycleScope.launch {
             try {
@@ -326,14 +314,12 @@ class SettingsFragment : Fragment() {
                 val pressureRecords = db.pressureRecordDao().getAllRecords()
                 val pulseRecords = db.pulseRecordDao().getAllRecords()
 
-                // Проверяем, есть ли хоть какие-то данные
                 val hasAnyRecords = migraineRecords.isNotEmpty() ||
                         menstruationDays.isNotEmpty() ||
                         pressureRecords.isNotEmpty() ||
                         pulseRecords.isNotEmpty()
 
                 if (!hasAnyRecords) {
-                    Toast.makeText(requireContext(), "Нет данных для экспорта", Toast.LENGTH_LONG).show()
                     return@launch
                 }
 
@@ -639,7 +625,6 @@ class SettingsFragment : Fragment() {
 
                 Toast.makeText(requireContext(), "Все данные успешно удалены", Toast.LENGTH_LONG).show()
 
-                // Обновляем состояние кнопки экспорта
                 btnExportAll.isEnabled = false
                 btnExportAll.alpha = 0.5f
                 btnExportAll.text = "Экспорт данных (нет данных)"
@@ -649,6 +634,8 @@ class SettingsFragment : Fragment() {
             }
         }
     }
+
+
 
     override fun onDestroyView() {
         super.onDestroyView()

@@ -6,7 +6,6 @@
     android:orientation="vertical"
     android:padding="20dp">
 
-    <!-- Заголовок -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -25,7 +24,6 @@
 
     </LinearLayout>
 
-    <!-- ScrollView для прокрутки содержимого -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -37,7 +35,6 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Давление -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -134,7 +131,6 @@
 
                     </LinearLayout>
 
-                    <!-- Подсказка по нормам давления -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -163,7 +159,6 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Пульс -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -232,7 +227,6 @@
 
                     </com.google.android.material.textfield.TextInputLayout>
 
-                    <!-- Подсказка по нормам пульса -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -261,7 +255,6 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Заметки -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -324,7 +317,6 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Информационная панель -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

@@ -168,7 +168,6 @@ class MenstruationCalendarFragment : Fragment() {
                 minCycleLength = 28
                 maxCycleLength = 28
                 avgPeriodLength = 5
-                // Очищаем прогнозы
                 nextPeriods.clear()
                 predictedDays.clear()
                 fertileWindowDays.clear()
@@ -195,7 +194,6 @@ class MenstruationCalendarFragment : Fragment() {
                 textPeriodLength.text = "—"
             }
 
-            // Расчет длины цикла за последние 6 месяцев
             val cycles = mutableListOf<Long>()
             for (i in 1 until periodStartDates.size) {
                 val prevStart = periodStartDates[i - 1]
@@ -210,14 +208,12 @@ class MenstruationCalendarFragment : Fragment() {
                 maxCycleLength = cycles.maxOrNull()?.toInt() ?: avgCycleLength
                 textCycleLength.text = "$avgCycleLength дн"
             } else {
-                // Если только один период, нет данных о длине цикла
                 textCycleLength.text = "—"
                 avgCycleLength = 28
                 minCycleLength = 28
                 maxCycleLength = 28
             }
 
-            // Рассчитываем следующие периоды ТОЛЬКО если есть данные о циклах
             if (cycles.isNotEmpty()) {
                 nextPeriods.clear()
                 val lastStart = periodStartDates.lastOrNull() ?: return@launch
@@ -245,23 +241,16 @@ class MenstruationCalendarFragment : Fragment() {
         fertileWindowDays.clear()
         ovulationDays.clear()
 
-        // Если нет данных о циклах, не рассчитываем
         if (periodStartDates.size < 2) {
             textOvulationPredicted.text = "—"
             return
         }
 
-        // Используем min и max цикл для расчета фертильного окна
-        val fertileStart = minCycleLength - 18
-        val fertileEnd = maxCycleLength - 11
-
         for (periodStart in periodStartDates) {
-            // Расчет дня овуляции по формуле: Длина цикла - 14
             val ovulationDayNumber = avgCycleLength - 14
             val ovulationDate = periodStart.plusDays(ovulationDayNumber.toLong())
             ovulationDays.add(ovulationDate)
 
-            // Фертильное окно: от (ovulationDayNumber - 5) до (ovulationDayNumber + 1)
             for (dayOffset in -5..1) {
                 val fertileDate = periodStart.plusDays(ovulationDayNumber.toLong() + dayOffset)
                 if (fertileDate.isAfter(periodStart.minusDays(1))) {
@@ -270,7 +259,6 @@ class MenstruationCalendarFragment : Fragment() {
             }
         }
 
-        // Рассчитываем для будущих периодов только если они есть
         if (nextPeriods.isNotEmpty()) {
             for (period in nextPeriods) {
                 val ovulationDayNumber = avgCycleLength - 14

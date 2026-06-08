@@ -11,7 +11,6 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- Навигация по месяцам -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -56,7 +55,6 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Дни недели -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -132,14 +130,12 @@
 
         </LinearLayout>
 
-        <!-- Календарь -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recycler_view_calendar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:padding="8dp" />
 
-        <!-- Статистика цикла -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -162,7 +158,6 @@
                     android:textColor="?attr/colorPrimary"
                     android:layout_marginBottom="16dp" />
 
-                <!-- Первая строка: Последние месячные и Длина цикла -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -245,7 +240,6 @@
 
                 </LinearLayout>
 
-                <!-- Вторая строка: Дней месячных и Следующие -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -328,7 +322,6 @@
 
                 </LinearLayout>
 
-                <!-- Третья строка: Овуляция и Экспорт -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -395,7 +388,7 @@
 
                             <TextView
                                 android:layout_width="wrap_content"
-                                android:layout_height="18dp"
+                                android:layout_height="wrap_content"
                                 android:text="Экспорт"
                                 android:textSize="12sp"
                                 android:textStyle="bold"
@@ -419,7 +412,6 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Легенда -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

@@ -341,7 +341,6 @@ class BloodPressureFragment : Fragment() {
                     }
                 }
 
-                // Добавляем статистику
                 if (records.isNotEmpty()) {
                     val pressureRecords = records.filterIsInstance<PressureRecord>()
                     val avgSystolic = pressureRecords.map { it.systolic }.average()
@@ -367,7 +366,6 @@ class BloodPressureFragment : Fragment() {
                     }
                 }
 
-                // Добавляем статистику
                 if (records.isNotEmpty()) {
                     val pulseRecords = records.filterIsInstance<PulseRecord>()
                     val avgPulse = pulseRecords.map { it.pulse }.average()
@@ -383,7 +381,6 @@ class BloodPressureFragment : Fragment() {
             }
         }
 
-        // Добавляем информацию о приложении
         sb.append("\n\nСоздано в приложении Migraine Tracker\n")
         sb.append("Дата экспорта: ${SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault()).format(Date())}\n")
 

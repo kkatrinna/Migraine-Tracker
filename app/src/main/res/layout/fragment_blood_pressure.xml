@@ -11,7 +11,6 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- Кнопка добавления (объединенная) -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -57,7 +56,6 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Статистика давления -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -283,18 +281,25 @@
 
                         <LinearLayout
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
+                            android:layout_height="match_parent"
                             android:orientation="vertical"
                             android:padding="16dp"
                             android:gravity="center">
 
                             <TextView
                                 android:layout_width="wrap_content"
-                                android:layout_height="30dp"
+                                android:layout_height="wrap_content"
                                 android:text="Экспорт"
                                 android:textSize="15sp"
                                 android:textStyle="bold"
                                 android:textColor="?attr/colorPrimary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="CSV"
+                                android:textSize="10sp"
+                                android:textColor="?android:attr/textColorSecondary" />
 
                         </LinearLayout>
 
@@ -306,7 +311,6 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Список измерений давления -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -324,7 +328,6 @@
             android:layout_height="wrap_content"
             android:padding="8dp" />
 
-        <!-- Статистика пульса -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -526,18 +529,25 @@
 
                         <LinearLayout
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
+                            android:layout_height="match_parent"
                             android:orientation="vertical"
                             android:padding="16dp"
                             android:gravity="center">
 
                             <TextView
                                 android:layout_width="wrap_content"
-                                android:layout_height="30dp"
+                                android:layout_height="wrap_content"
                                 android:text="Экспорт"
                                 android:textSize="15sp"
                                 android:textStyle="bold"
                                 android:textColor="?attr/colorPrimary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="CSV"
+                                android:textSize="10sp"
+                                android:textColor="?android:attr/textColorSecondary" />
 
                         </LinearLayout>
 
@@ -549,7 +559,6 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Список измерений пульса -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

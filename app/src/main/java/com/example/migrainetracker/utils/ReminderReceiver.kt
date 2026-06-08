@@ -26,7 +26,6 @@ class ReminderReceiver : BroadcastReceiver() {
 
         showNotification(context, medicineName, reminderId)
 
-        // Если это повторяющееся напоминание, планируем следующее
         if (repeatInterval > 0) {
             scheduleNextReminder(context, reminderId, medicineName, repeatInterval)
         }
@@ -48,7 +47,6 @@ class ReminderReceiver : BroadcastReceiver() {
         )
 
         val calendar = Calendar.getInstance().apply {
-            // Добавляем интервал к текущему времени
             add(Calendar.HOUR_OF_DAY, repeatInterval)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
@@ -124,7 +122,7 @@ class ReminderReceiver : BroadcastReceiver() {
         val intent = Intent(context, ReminderReceiver::class.java).apply {
             putExtra("medicine_name", medicineName)
             putExtra("reminder_id", reminderId)
-            putExtra("repeat_interval", 0) // Отложить на 15 минут
+            putExtra("repeat_interval", 0)
         }
 
         val calendar = Calendar.getInstance().apply {

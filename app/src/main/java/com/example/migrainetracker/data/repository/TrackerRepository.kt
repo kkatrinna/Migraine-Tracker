@@ -4,14 +4,6 @@ import com.example.migrainetracker.data.AppDatabase
 import com.example.migrainetracker.data.entity.*
 import java.time.LocalDate
 
-data class DayCardData(
-    val date: LocalDate,
-    val maxIntensity: Int?,
-    val isMenstruating: Boolean,
-    val avgPressure: Double?,
-    val avgPulse: Double?
-)
-
 class TrackerRepository(private val db: AppDatabase) {
 
 

@@ -26,8 +26,6 @@ class TriggerCheckboxAdapter(
 
     override fun getItemCount(): Int = triggers.size
 
-    fun getSelectedTriggerIds(): List<Int> = selectedIds.toList()
-
     inner class TriggerViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val checkBox: CheckBox = itemView.findViewById(R.id.checkbox_trigger)
 

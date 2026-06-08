@@ -175,9 +175,10 @@ class MainFragment : Fragment() {
     }
 
     private fun applyThemeColors() {
-        val isNightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         view?.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.background_main))
-        textMonthTitle.setTextColor(ContextCompat.getColor(requireContext(), if (isNightMode) R.color.white else R.color.black))
+
+        textMonthTitle.setTextColor(ContextCompat.getColor(requireContext(), R.color.purple_500))
+
         if (::calendarAdapter.isInitialized) calendarAdapter.notifyDataSetChanged()
     }
 
@@ -337,52 +338,6 @@ class MainFragment : Fragment() {
         textMigraineDaysCount.text = daysWithMigraine.toString()
         textAvgIntensity.text = String.format("%.1f/10", avgIntensity)
         textMaxIntensity.text = "$maxIntensity/10"
-    }
-
-    private fun exportRecordsToCSV(records: List<MigraineRecord>): File? {
-        return try {
-            val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-            val file = File(requireContext().cacheDir, "migraine_records_$timeStamp.csv")
-
-            FileOutputStream(file).use { outputStream ->
-                val headers = listOf("ID", "Дата", "Время начала", "Время окончания", "Интенсивность (1-10)", "Лекарство", "Тошнота", "Светобоязнь", "Аура", "Заметки")
-                outputStream.write(headers.joinToString(",").toByteArray())
-                outputStream.write("\n".toByteArray())
-
-                records.forEach { record ->
-                    val row = listOf(
-                        record.id.toString(), record.date.toString(), record.time.toString(),
-                        record.endTime?.toString() ?: "", record.intensity.toString(),
-                        record.medicationName?.replace(",", " ") ?: "",
-                        if (record.nausea) "Да" else "Нет",
-                        if (record.photophobia) "Да" else "Нет",
-                        if (record.aura) "Да" else "Нет",
-                        record.notes?.replace(",", " ") ?: ""
-                    )
-                    outputStream.write(row.joinToString(",").toByteArray())
-                    outputStream.write("\n".toByteArray())
-                }
-            }
-            file
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
-
-    private fun shareFile(file: File) {
-        try {
-            val uri = FileProvider.getUriForFile(requireContext(), "${requireContext().packageName}.fileprovider", file)
-            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/csv"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            startActivity(Intent.createChooser(shareIntent, "Поделиться файлом"))
-        } catch (e: Exception) {
-            e.printStackTrace()
-            Toast.makeText(requireContext(), "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
     }
 
     private fun showExportDialog() {
@@ -1292,7 +1247,6 @@ class MainFragment : Fragment() {
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
 
-            // Если время уже прошло сегодня, устанавливаем на завтра
             if (timeInMillis <= System.currentTimeMillis()) {
                 add(Calendar.DAY_OF_YEAR, 1)
             }
@@ -1300,23 +1254,19 @@ class MainFragment : Fragment() {
 
         try {
             if (reminder.repeatInterval > 0) {
-                // Для Android 12+ используем setExact() и перепланируем в Receiver
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    // Используем setExact() вместо setRepeating()
                     alarmManager.setExact(
                         AlarmManager.RTC_WAKEUP,
                         calendar.timeInMillis,
                         pendingIntent
                     )
                 } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    // Для Android 6-11 используем setExactAndAllowWhileIdle
                     alarmManager.setExactAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
                         calendar.timeInMillis,
                         pendingIntent
                     )
                 } else {
-                    // Для старых версий используем setRepeating
                     val intervalMillis = (reminder.repeatInterval * 60 * 60 * 1000).toLong()
                     alarmManager.setRepeating(
                         AlarmManager.RTC_WAKEUP,
@@ -1326,7 +1276,6 @@ class MainFragment : Fragment() {
                     )
                 }
             } else {
-                // Обычное напоминание (без повтора)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     alarmManager.setExactAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,

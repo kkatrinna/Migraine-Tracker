@@ -21,7 +21,7 @@ import com.example.migrainetracker.utils.DateConverters
         MigraineRecordTrigger::class,
         MedicineReminder::class
     ],
-    version = 12,  // Увеличиваем версию
+    version = 12,
     exportSchema = false
 )
 @TypeConverters(DateConverters::class)
@@ -45,7 +45,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "migraine_tracker_db"
                 )
-                    .fallbackToDestructiveMigration()  // Это удалит старую БД и создаст новую
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance
