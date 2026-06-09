@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_main"
+        android:icon="@drawable/ic_home"
+        android:title="Мигрень" />
+    <item
+        android:id="@+id/nav_blood_pressure"
+        android:icon="@drawable/ic_pressure"
+        android:title="Давление/Пульс" />
+    <item
+        android:id="@+id/nav_menstruation"
+        android:icon="@drawable/ic_menstruation"
+        android:title="Месячные" />
+    <item
+        android:id="@+id/nav_settings"
+        android:icon="@drawable/ic_settings"
+        android:title="Настройки" />
+</menu>

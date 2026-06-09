@@ -1,0 +1,64 @@
+<resources>
+    <string name="app_name">Трекер здоровья</string>
+
+    <string name="title_migraine">Трекер здоровья</string>
+    <string name="title_pressure">Давление</string>
+    <string name="title_pulse">Пульс</string>
+    <string name="title_menstruation">Месячные</string>
+
+    <string name="button_add">Добавить</string>
+    <string name="button_save">Сохранить</string>
+    <string name="button_cancel">Отмена</string>
+    <string name="button_close">Закрыть</string>
+    <string name="button_delete">Удалить</string>
+    <string name="button_edit">Редактировать</string>
+
+    <string name="label_intensity">Интенсивность боли</string>
+    <string name="label_medication">Название таблетки (опционально)</string>
+    <string name="label_systolic">Систолическое (верхнее)</string>
+    <string name="label_diastolic">Диастолическое (нижнее)</string>
+    <string name="label_pulse">Пульс (уд/мин)</string>
+    <string name="label_date">Дата</string>
+    <string name="label_time">Время</string>
+
+    <string name="msg_no_migraine">Нет записей о мигрени</string>
+    <string name="msg_no_pressure">Нет записей о давлении</string>
+    <string name="msg_no_pulse">Нет записей о пульсе</string>
+    <string name="msg_no_data">Нет данных за этот месяц</string>
+    <string name="msg_record_saved">Запись сохранена</string>
+    <string name="msg_record_deleted">Запись удалена</string>
+    <string name="msg_enter_valid_values">Введите корректные значения</string>
+    <string name="msg_loading_error">Ошибка загрузки данных</string>
+
+    <string name="menu_main">Главная</string>
+    <string name="menu_chart">График</string>
+    <string name="menu_calendar">Календарь</string>
+    <string name="menu_pressure">Давление и пульс</string>
+    <string name="menu_settings">Настройки</string>
+
+    <string name="screen_main">Отслеживание мигрени</string>
+    <string name="screen_chart">График мигрени по месяцам</string>
+    <string name="screen_menstruation">Календарь месячных</string>
+    <string name="screen_pressure">Давление и пульс</string>
+
+    <string name="day_mon">Пн</string>
+    <string name="day_tue">Вт</string>
+    <string name="day_wed">Ср</string>
+    <string name="day_thu">Чт</string>
+    <string name="day_fri">Пт</string>
+    <string name="day_sat">Сб</string>
+    <string name="day_sun">Вс</string>
+
+    <string name="month_january">Январь</string>
+    <string name="month_february">Февраль</string>
+    <string name="month_march">Март</string>
+    <string name="month_april">Апрель</string>
+    <string name="month_may">Май</string>
+    <string name="month_june">Июнь</string>
+    <string name="month_july">Июль</string>
+    <string name="month_august">Август</string>
+    <string name="month_september">Сентябрь</string>
+    <string name="month_october">Октябрь</string>
+    <string name="month_november">Ноябрь</string>
+    <string name="month_december">Декабрь</string>
+</resources>
